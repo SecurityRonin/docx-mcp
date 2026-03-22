@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "docx-mcp"
+name = "docx-mcp-server"
 version = "0.1.0"
 description = "MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, and structural validation"
 readme = "README.md"

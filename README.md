@@ -21,10 +21,10 @@ The only cross-platform MCP server that combines **track changes**, **comments**
 
 ```bash
 # With pip
-pip install docx-mcp
+pip install docx-mcp-server
 
 # With uvx (recommended for MCP)
-uvx docx-mcp
+uvx docx-mcp-server
 ```
 
 ## Configuration
@@ -38,7 +38,7 @@ Add to your MCP settings:
   "mcpServers": {
     "docx-mcp": {
       "command": "uvx",
-      "args": ["docx-mcp"]
+      "args": ["docx-mcp-server"]
     }
   }
 }
@@ -53,7 +53,7 @@ Add to your MCP configuration file:
   "mcpServers": {
     "docx-mcp": {
       "command": "uvx",
-      "args": ["docx-mcp"]
+      "args": ["docx-mcp-server"]
     }
   }
 }
