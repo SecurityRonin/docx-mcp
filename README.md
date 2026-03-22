@@ -5,8 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/SecurityRonin/docx-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/SecurityRonin/docx-mcp/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/SecurityRonin/docx-mcp)
-[![Glama](https://glama.ai/mcp/servers/SecurityRonin/docx-mcp/badge)](https://glama.ai/mcp/servers/SecurityRonin/docx-mcp)
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github)](https://github.com/sponsors/h4x0r)
+[![Sponsor](https://img.shields.io/github/sponsors/h4x0r?logo=githubsponsors&label=Sponsor&color=%23ea4aaa)](https://github.com/sponsors/h4x0r)
+
+<a href="https://glama.ai/mcp/servers/@SecurityRonin/docx-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@SecurityRonin/docx-mcp/badge" alt="docx-mcp MCP server" />
+</a>
 
 MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, and structural validation.
 

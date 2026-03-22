@@ -342,8 +342,8 @@ wheels = [
 ]
 
 [[package]]
-name = "docx-mcp"
-version = "0.1.0"
+name = "docx-mcp-server"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "lxml" },
