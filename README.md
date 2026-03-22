@@ -166,3 +166,5 @@ This approach gives full control over OOXML markup — essential for track chang
 ## License
 
 MIT
+
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=95beebbb-0f2e-46cc-9a68-a8e66f613180" />
