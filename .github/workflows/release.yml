@@ -62,7 +62,12 @@ jobs:
           pyinstaller --onefile
           --name ${{ matrix.name }}
           --collect-all docx_mcp
-          --collect-submodules mcp
+          --hidden-import mcp
+          --hidden-import mcp.server
+          --hidden-import mcp.server.fastmcp
+          --hidden-import mcp.server.stdio
+          --hidden-import mcp.types
+          --hidden-import mcp.shared
           --exclude-module mcp.cli
           docx_mcp/__main__.py
       - uses: actions/upload-artifact@v4
