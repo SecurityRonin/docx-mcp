@@ -39,39 +39,27 @@ The only cross-platform MCP server that combines **track changes**, **comments**
 ## Installation
 
 ```bash
-# Register MCP server with Claude Code
 claude mcp add docx-mcp -- uvx docx-mcp-server
-
-# Install the companion skill (teaches Claude when and how to use the tools)
-uvx --from docx-mcp-server@latest docx-mcp install-skill
 ```
 
-The skill ships inside the package. After upgrading, run `uvx --from docx-mcp-server@latest docx-mcp update-skill` to refresh it.
+That's it. The companion [skill](docx_mcp/skill/SKILL.md) — which teaches Claude the OOXML workflow patterns, pitfalls, and audit checklist — auto-installs the first time the server starts and auto-updates on every upgrade.
 
 <details>
 <summary>Other installation methods</summary>
 
-```bash
-# With pip
-pip install docx-mcp-server
-docx-mcp install-skill
+**With pip:**
 
-# With uvx (standalone, no pip install)
-uvx --from docx-mcp-server@latest docx-mcp install-skill
+```bash
+pip install docx-mcp-server
+```
+
+**Manual skill install** (only needed if auto-install can't write to `~/.claude/skills/`):
+
+```bash
+docx-mcp install-skill
 ```
 
 </details>
-
-### Upgrading
-
-```bash
-# uvx users — uvx always fetches the latest, just refresh the skill
-uvx --from docx-mcp-server@latest docx-mcp update-skill
-
-# pip users
-pip install --upgrade docx-mcp-server
-docx-mcp update-skill
-```
 
 ## Configuration
 
