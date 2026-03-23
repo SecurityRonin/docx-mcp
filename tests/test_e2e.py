@@ -1,4 +1,4 @@
-"""End-to-end tests for all 18 MCP tools — targeting 100% line coverage."""
+"""End-to-end tests for all 43 MCP tools — targeting 100% line and roundtrip coverage."""
 
 from __future__ import annotations
 
@@ -985,3 +985,603 @@ class TestMain:
         monkeypatch.setattr(server.mcp, "run", lambda: called.append(True))
         server.main()
         assert called == [True]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Tables
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestTablesRoundtrip:
+    """Save → reopen → verify for all table tools."""
+
+    def test_get_tables_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        tables_before = _j(server.get_tables())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        tables_after = _j(server.get_tables())
+        assert len(tables_after) == len(tables_before)
+        assert tables_after[0]["cells"] == tables_before[0]["cells"]
+
+    def test_add_table_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_table("00000004", rows=2, cols=3)
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        tables = _j(server.get_tables())
+        assert len(tables) == 2
+        new_tbl = next(t for t in tables if t["col_count"] == 3)
+        assert new_tbl["row_count"] == 2
+
+    def test_modify_cell_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.modify_cell(0, 0, 0, "Changed")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        tables = _j(server.get_tables())
+        assert "Changed" in tables[0]["cells"][0][0]
+
+    def test_add_table_row_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_table_row(0, cells=["New A", "New B"])
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        tables = _j(server.get_tables())
+        assert tables[0]["row_count"] == 4
+        assert tables[0]["cells"][-1] == ["New A", "New B"]
+
+    def test_delete_table_row_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.delete_table_row(0, 2)
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Row still exists structurally (tracked deletion), table shape preserved
+        tables = _j(server.get_tables())
+        assert tables[0]["row_count"] == 3
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Styles
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestStylesRoundtrip:
+    def test_get_styles_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        styles_before = _j(server.get_styles())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        styles_after = _j(server.get_styles())
+        assert len(styles_after) == len(styles_before)
+        ids_before = {s["id"] for s in styles_before}
+        ids_after = {s["id"] for s in styles_after}
+        assert ids_before == ids_after
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Headers / Footers
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestHeadersFootersRoundtrip:
+    def test_get_headers_footers_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        hf_before = _j(server.get_headers_footers())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        hf_after = _j(server.get_headers_footers())
+        assert len(hf_after) == len(hf_before)
+
+    def test_edit_header_footer_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.edit_header_footer("header", "Document Header Text", "Updated Header")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        hf = _j(server.get_headers_footers())
+        header_texts = " ".join(h["text"] for h in hf if h["location"] == "header")
+        assert "Updated Header" in header_texts
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Properties
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestPropertiesRoundtrip:
+    def test_get_properties_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        props_before = _j(server.get_properties())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        props_after = _j(server.get_properties())
+        assert props_after["title"] == props_before["title"]
+        assert props_after["creator"] == props_before["creator"]
+
+    def test_set_properties_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.set_properties(title="Roundtrip Title", creator="RT Author")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        props = _j(server.get_properties())
+        assert props["title"] == "Roundtrip Title"
+        assert props["creator"] == "RT Author"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Images
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestImagesRoundtrip:
+    def test_get_images_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        imgs_before = _j(server.get_images())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        imgs_after = _j(server.get_images())
+        assert len(imgs_after) == len(imgs_before)
+        assert imgs_after[0]["filename"] == imgs_before[0]["filename"]
+
+    def test_insert_image_roundtrip(self, test_docx: Path, tmp_path: Path):
+        img = tmp_path / "roundtrip.png"
+        img.write_bytes(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+            b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+            b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx"
+            b"\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        server.open_document(str(test_docx))
+        server.insert_image("00000004", str(img))
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        images = _j(server.get_images())
+        assert len(images) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Endnotes
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestEndnotesRoundtrip:
+    def test_get_endnotes_survives_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        en_before = _j(server.get_endnotes())
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        en_after = _j(server.get_endnotes())
+        assert len(en_after) == len(en_before)
+
+    def test_add_endnote_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_endnote("00000004", "Roundtrip endnote")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        endnotes = _j(server.get_endnotes())
+        assert len(endnotes) == 2
+        assert any("Roundtrip endnote" in e["text"] for e in endnotes)
+
+    def test_validate_endnotes_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_endnote("00000004", "Extra endnote")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        v = _j(server.validate_endnotes())
+        assert v["valid"] is True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Lists
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestListsRoundtrip:
+    def test_add_list_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_list(["00000004", "00000005"], style="bullet")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Verify paragraphs still exist and doc is valid
+        para = _j(server.get_paragraph("00000004"))
+        assert para["paraId"] == "00000004"
+        audit = _j(server.audit_document())
+        assert audit["paraids"]["valid"] is True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Sections / Page breaks
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestSectionsRoundtrip:
+    def test_add_page_break_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        result = _j(server.add_page_break("00000004"))
+        new_para_id = result["para_id"]
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        para = _j(server.get_paragraph(new_para_id))
+        assert para["paraId"] == new_para_id
+
+    def test_add_section_break_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.add_section_break("00000004", break_type="nextPage")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Verify paragraph still exists and section break survived
+        doc = server._doc
+        tree = doc._trees["word/document.xml"]
+        p = doc._find_para(tree, "00000004")
+        sect_pr = p.find(f"{W}pPr/{W}sectPr")
+        assert sect_pr is not None
+
+    def test_set_section_properties_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        # Add a body-level sectPr first
+        doc = server._doc._trees["word/document.xml"]
+        body = doc.find(f"{W}body")
+        sect_pr = etree.SubElement(body, f"{W}sectPr")
+        etree.SubElement(sect_pr, f"{W}pgSz")
+        server.set_section_properties(width=15840, height=12240, orientation="landscape")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Verify section properties survived
+        doc2 = server._doc._trees["word/document.xml"]
+        body2 = doc2.find(f"{W}body")
+        sect_pr2 = body2.find(f"{W}sectPr")
+        assert sect_pr2 is not None
+        pg_sz = sect_pr2.find(f"{W}pgSz")
+        assert pg_sz is not None
+        assert pg_sz.get(f"{W}w") == "15840"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Cross-references
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCrossReferenceRoundtrip:
+    def test_cross_reference_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        _j(server.add_cross_reference(
+            source_para_id="00000004",
+            target_para_id="00000001",
+            text="see Introduction",
+        ))
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Verify cross-reference text appears in source paragraph
+        para = _j(server.get_paragraph("00000004"))
+        assert "see Introduction" in para["text"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Protection
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestProtectionRoundtrip:
+    def test_set_protection_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.set_document_protection("trackedChanges")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        audit = _j(server.audit_document())
+        assert audit["protection"]["edit"] == "trackedChanges"
+        assert audit["protection"]["enforcement"] == "1"
+
+    def test_set_protection_with_password_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.set_document_protection("readOnly", password="s3cret")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        audit = _j(server.audit_document())
+        assert audit["protection"]["edit"] == "readOnly"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Merge
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestMergeRoundtrip:
+    def test_merge_roundtrip(self, test_docx: Path, tmp_path: Path):
+        # Build a source document
+        src = tmp_path / "source.docx"
+        import zipfile as zf_mod
+
+        with zf_mod.ZipFile(src, "w") as zf:
+            zf.writestr(
+                "[Content_Types].xml",
+                '<?xml version="1.0"?>'
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Default Extension="rels"'
+                ' ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Override PartName="/word/document.xml"'
+                ' ContentType="application/vnd.openxmlformats-officedocument'
+                '.wordprocessingml.document.main+xml"/>'
+                "</Types>",
+            )
+            zf.writestr(
+                "_rels/.rels",
+                '<?xml version="1.0"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1"'
+                ' Type="http://schemas.openxmlformats.org/officeDocument/'
+                '2006/relationships/officeDocument"'
+                ' Target="word/document.xml"/>'
+                "</Relationships>",
+            )
+            zf.writestr(
+                "word/_rels/document.xml.rels",
+                '<?xml version="1.0"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                "</Relationships>",
+            )
+            zf.writestr(
+                "word/document.xml",
+                '<?xml version="1.0"?>'
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+                'wordprocessingml/2006/main"'
+                ' xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">'
+                "<w:body>"
+                '<w:p w14:paraId="50000001" w14:textId="77777777">'
+                "<w:r><w:t>Merged paragraph</w:t></w:r></w:p>"
+                "</w:body></w:document>",
+            )
+
+        server.open_document(str(test_docx))
+        server.merge_documents(str(src))
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        results = _j(server.search_text("Merged paragraph"))
+        assert len(results) >= 1
+        v = _j(server.validate_paraids())
+        assert v["valid"] is True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Track changes (accept/reject/formatting)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestTrackChangesRoundtrip:
+    def test_accept_changes_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " ACCEPTED")
+        server.delete_text("00000004", "30 days")
+        server.accept_changes()
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        para = _j(server.get_paragraph("00000004"))
+        assert "ACCEPTED" in para["text"]
+        assert "30 days" not in para["text"]
+
+    def test_reject_changes_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " REJECTED")
+        server.delete_text("00000004", "30 days")
+        server.reject_changes()
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        para = _j(server.get_paragraph("00000004"))
+        assert "REJECTED" not in para["text"]
+        assert "30 days" in para["text"]
+
+    def test_set_formatting_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        server.set_formatting("00000004", "contract", bold=True, color="FF0000")
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        # Verify paragraph still contains the text
+        para = _j(server.get_paragraph("00000004"))
+        assert "contract" in para["text"]
+        # Verify the rPrChange survived (formatting tracked change)
+        doc = server._doc._trees["word/document.xml"]
+        p = server._doc._find_para(doc, "00000004")
+        rpr_changes = list(p.iter(f"{W}rPrChange"))
+        assert len(rpr_changes) >= 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Comments (reply)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCommentsRoundtrip:
+    def test_reply_to_comment_roundtrip(self, test_docx: Path, tmp_path: Path):
+        server.open_document(str(test_docx))
+        parent = _j(server.add_comment("00000004", "Parent comment"))
+        _j(server.reply_to_comment(parent["comment_id"], "Reply text"))
+        out = str(tmp_path / "rt.docx")
+        _j(server.save_document(out))
+        server.close_document()
+        server.open_document(out)
+        comments = _j(server.get_comments())
+        assert len(comments) == 2
+        texts = {c["text"] for c in comments}
+        assert "Parent comment" in texts
+        assert "Reply text" in texts
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  E2E roundtrip: Full workflow with all tool categories
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestFullRoundtrip:
+    def test_comprehensive_workflow(self, test_docx: Path, tmp_path: Path):
+        """Open → use every tool category → save → reopen → verify all."""
+        server.open_document(str(test_docx))
+
+        # Track changes
+        server.insert_text("00000004", " [INSERTED]")
+        server.delete_text("00000004", "30 days")
+
+        # Comment + reply
+        parent = _j(server.add_comment("00000005", "Review needed"))
+        server.reply_to_comment(parent["comment_id"], "Acknowledged")
+
+        # Footnote + endnote
+        server.add_footnote("00000005", "Added footnote")
+        server.add_endnote("00000004", "Added endnote")
+
+        # Table operations
+        server.add_table("00000004", rows=1, cols=2)
+        server.add_table_row(0, cells=["X", "Y"])
+
+        # Formatting
+        server.set_formatting("00000005", "Final", italic=True)
+
+        # List
+        server.add_list(["00000006"], style="numbered")
+
+        # Image
+        img = tmp_path / "test.png"
+        img.write_bytes(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+            b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+            b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx"
+            b"\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        server.insert_image("00000005", str(img))
+
+        # Properties
+        server.set_properties(title="Comprehensive Test")
+
+        # Cross-reference
+        server.add_cross_reference(
+            source_para_id="00000005",
+            target_para_id="00000001",
+            text="see Introduction",
+        )
+
+        # Section / page break
+        server.add_page_break("00000006")
+        server.add_section_break("00000003", break_type="continuous")
+
+        # Protection
+        server.set_document_protection("trackedChanges")
+
+        # Watermark removal
+        server.remove_watermark()
+
+        # Save
+        out = str(tmp_path / "comprehensive.docx")
+        _j(server.save_document(out))
+        server.close_document()
+
+        # ── Reopen and verify everything ──────────────────────────────
+        server.open_document(out)
+
+        # Track changes
+        para4 = _j(server.get_paragraph("00000004"))
+        assert "[INSERTED]" in para4["text"]
+
+        # Comments
+        comments = _j(server.get_comments())
+        assert len(comments) == 2
+
+        # Footnotes
+        fn = _j(server.get_footnotes())
+        assert len(fn) == 2
+
+        # Endnotes
+        en = _j(server.get_endnotes())
+        assert len(en) == 2
+
+        # Tables
+        tables = _j(server.get_tables())
+        assert len(tables) >= 2
+
+        # Images
+        images = _j(server.get_images())
+        assert len(images) == 2
+
+        # Properties
+        props = _j(server.get_properties())
+        assert props["title"] == "Comprehensive Test"
+
+        # Styles (still present)
+        styles = _j(server.get_styles())
+        assert len(styles) >= 4
+
+        # Headers/footers
+        hf = _j(server.get_headers_footers())
+        assert len(hf) >= 1
+
+        # Protection
+        audit = _j(server.audit_document())
+        assert audit["protection"]["edit"] == "trackedChanges"
+
+        # Watermark gone
+        wm = _j(server.remove_watermark())
+        assert wm["removed"] == 0
+
+        # Paraids valid
+        v = _j(server.validate_paraids())
+        assert v["valid"] is True
+
+        # Endnote cross-refs valid
+        ev = _j(server.validate_endnotes())
+        assert ev["valid"] is True
+
+        # Footnote cross-refs valid
+        fv = _j(server.validate_footnotes())
+        assert fv["valid"] is True
