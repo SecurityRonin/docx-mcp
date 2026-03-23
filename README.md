@@ -39,21 +39,39 @@ The only cross-platform MCP server that combines **track changes**, **comments**
 ## Installation
 
 ```bash
-# Claude Code (recommended)
+# Register MCP server with Claude Code
 claude mcp add docx-mcp -- uvx docx-mcp-server
 
-# With pip
-pip install docx-mcp-server
-
-# With uvx
-uvx docx-mcp-server
+# Install the companion skill (teaches Claude when and how to use the tools)
+uvx --from docx-mcp-server docx-mcp install-skill
 ```
 
-> **Optional:** Install the companion [skill](docx_mcp/skill/SKILL.md) for Claude Code — it teaches Claude when and how to use the tools automatically:
-> ```bash
-> docx-mcp install-skill
-> ```
-> The skill ships with the package and updates when you upgrade. Run `docx-mcp update-skill` after upgrading to refresh it.
+The skill ships inside the package. After upgrading, run `uvx --from docx-mcp-server docx-mcp update-skill` to refresh it.
+
+<details>
+<summary>Other installation methods</summary>
+
+```bash
+# With pip
+pip install docx-mcp-server
+docx-mcp install-skill
+
+# With uvx (standalone, no pip install)
+uvx --from docx-mcp-server docx-mcp install-skill
+```
+
+</details>
+
+### Upgrading
+
+```bash
+# uvx users — uvx always fetches the latest, just refresh the skill
+uvx --from docx-mcp-server docx-mcp update-skill
+
+# pip users
+pip install --upgrade docx-mcp-server
+docx-mcp update-skill
+```
 
 ## Configuration
 
@@ -118,7 +136,7 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 }
 ```
 
-## Available Tools (37)
+## Available Tools (43)
 
 ### Document Lifecycle
 

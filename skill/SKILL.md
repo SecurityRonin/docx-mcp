@@ -63,6 +63,25 @@ A .docx file is a ZIP archive of XML files. This server unpacks the archive, par
 |------|---------|----------|
 | `insert_text` | Tracked insertion (green underline) | `para_id`, `text`, `position` |
 | `delete_text` | Tracked deletion (red strikethrough) | `para_id`, `text` |
+| `accept_changes` | Accept tracked changes | `author` (optional) |
+| `reject_changes` | Reject tracked changes | `author` (optional) |
+| `set_formatting` | Bold/italic/underline/color with tracked markup | `para_id`, `text`, `bold`, `italic`, `underline`, `color` |
+
+### Tables
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `get_tables` | List all tables with cell content | — |
+| `add_table` | Insert table after paragraph | `para_id`, `rows`, `cols` |
+| `modify_cell` | Modify cell text with tracked changes | `table_index`, `row`, `col`, `text` |
+| `add_table_row` | Add row to table | `table_index`, `cells` (optional), `row_idx` (optional) |
+| `delete_table_row` | Delete row with tracked changes | `table_index`, `row_index` |
+
+### Lists
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `add_list` | Apply bullet/numbered list formatting | `para_ids`, `style` |
 
 ### Comments
 
@@ -72,13 +91,49 @@ A .docx file is a ZIP archive of XML files. This server unpacks the archive, par
 | `add_comment` | Comment anchored to paragraph | `para_id`, `text` |
 | `reply_to_comment` | Threaded reply | `parent_id`, `text` |
 
-### Footnotes
+### Footnotes & Endnotes
 
 | Tool | Purpose | Key args |
 |------|---------|----------|
 | `get_footnotes` | List all footnotes | — |
 | `add_footnote` | Footnote with superscript ref | `para_id`, `text` |
 | `validate_footnotes` | Cross-ref footnote IDs | — |
+| `get_endnotes` | List all endnotes | — |
+| `add_endnote` | Endnote with superscript ref | `para_id`, `text` |
+| `validate_endnotes` | Cross-ref endnote IDs | — |
+
+### Headers, Footers & Styles
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `get_headers_footers` | List all headers/footers with text | — |
+| `edit_header_footer` | Edit header/footer text with tracked changes | `location`, `old_text`, `new_text` |
+| `get_styles` | List all defined styles | — |
+
+### Properties & Images
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `get_properties` | Get core properties (title, creator, dates) | — |
+| `set_properties` | Set core properties | `title`, `creator`, `subject`, `description` |
+| `get_images` | List embedded images with dimensions | — |
+| `insert_image` | Insert image after paragraph | `para_id`, `image_path` |
+
+### Sections & Cross-References
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `add_page_break` | Insert page break after paragraph | `para_id` |
+| `add_section_break` | Add section break | `para_id`, `break_type` |
+| `set_section_properties` | Set page size/orientation/margins | `width`, `height`, `orientation`, `para_id` (optional) |
+| `add_cross_reference` | Internal hyperlink between paragraphs | `source_para_id`, `target_para_id`, `text` |
+
+### Protection & Merge
+
+| Tool | Purpose | Key args |
+|------|---------|----------|
+| `set_document_protection` | Set edit protection with optional password | `edit_type`, `password` (optional) |
+| `merge_documents` | Merge content from another DOCX | `source_path` |
 
 ### Validation & Audit
 
