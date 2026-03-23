@@ -26,10 +26,10 @@ def _j(result: str) -> dict | list:
 class TestOpen:
     def test_open_returns_info(self, test_docx: Path):
         info = _j(server.open_document(str(test_docx)))
-        assert info["paragraph_count"] == 6
+        assert info["paragraph_count"] == 13  # 7 body + 6 table cell paragraphs
         assert info["heading_count"] == 2
         assert info["footnote_count"] == 1
-        assert info["image_count"] == 0
+        assert info["image_count"] == 1
         assert "parts" in info
 
     def test_open_replaces_previous(self, test_docx: Path, tmp_path: Path):
@@ -40,7 +40,7 @@ class TestOpen:
 
         shutil.copy2(test_docx, copy)
         info = _j(server.open_document(str(copy)))
-        assert info["paragraph_count"] == 6
+        assert info["paragraph_count"] == 13
 
     def test_open_nonexistent(self):
         with pytest.raises(FileNotFoundError):
@@ -68,7 +68,7 @@ class TestInfo:
     def test_get_info(self, test_docx: Path):
         server.open_document(str(test_docx))
         info = _j(server.get_document_info())
-        assert info["paragraph_count"] == 6
+        assert info["paragraph_count"] == 13
         assert "size_bytes" in info
 
     def test_get_info_no_document(self):

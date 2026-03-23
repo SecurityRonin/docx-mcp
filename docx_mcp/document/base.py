@@ -24,6 +24,10 @@ A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 CT = "{http://schemas.openxmlformats.org/package/2006/content-types}"
 RELS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+DC = "{http://purl.org/dc/elements/1.1/}"
+DCTERMS = "{http://purl.org/dc/terms/}"
+CP = "{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}"
 
 NSMAP = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
@@ -82,6 +86,10 @@ class BaseMixin:
 
         # Discover and parse XML files
         xml_files = ["[Content_Types].xml"]
+        # Core properties
+        core = self.workdir / "docProps" / "core.xml"
+        if core.exists():
+            xml_files.append("docProps/core.xml")
         word_dir = self.workdir / "word"
         if word_dir.exists():
             for name in [

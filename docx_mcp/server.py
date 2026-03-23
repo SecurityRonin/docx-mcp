@@ -112,6 +112,60 @@ def get_paragraph(para_id: str) -> str:
     return _js(_require_doc().get_paragraph(para_id))
 
 
+# ── Tables ─────────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_tables() -> str:
+    """Get all tables with row/column counts and cell text content."""
+    return _js(_require_doc().get_tables())
+
+
+# ── Styles ─────────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_styles() -> str:
+    """Get all defined styles with ID, name, type, and base style."""
+    return _js(_require_doc().get_styles())
+
+
+# ── Headers / Footers ──────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_headers_footers() -> str:
+    """Get all headers and footers with their text content."""
+    return _js(_require_doc().get_headers_footers())
+
+
+# ── Properties ─────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_properties() -> str:
+    """Get core document properties (title, creator, subject, dates, revision)."""
+    return _js(_require_doc().get_properties())
+
+
+# ── Images ─────────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_images() -> str:
+    """Get all embedded images with rId, filename, content type, and dimensions."""
+    return _js(_require_doc().get_images())
+
+
+# ── Endnotes ───────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_endnotes() -> str:
+    """Get all endnotes with their ID and text content."""
+    return _js(_require_doc().get_endnotes())
+
+
 # ── Footnotes ───────────────────────────────────────────────────────────────
 
 

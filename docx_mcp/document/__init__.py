@@ -2,8 +2,11 @@
 
 from .base import (
     A,
+    CP,
     CT,
     CT_TYPES,
+    DC,
+    DCTERMS,
     NSMAP,
     R,
     RELS,
@@ -12,14 +15,21 @@ from .base import (
     W,
     W14,
     W15,
+    WP,
     XML_SPACE,
     BaseMixin,
     _now_iso,
     _preserve,
 )
 from .comments import CommentsMixin
+from .endnotes import EndnotesMixin
 from .footnotes import FootnotesMixin
+from .headers_footers import HeadersFootersMixin
+from .images import ImagesMixin
+from .properties import PropertiesMixin
 from .reading import ReadingMixin
+from .styles import StylesMixin
+from .tables import TablesMixin
 from .tracks import TracksMixin
 from .validation import ValidationMixin
 
@@ -31,6 +41,12 @@ class DocxDocument(
     CommentsMixin,
     FootnotesMixin,
     ValidationMixin,
+    TablesMixin,
+    StylesMixin,
+    HeadersFootersMixin,
+    PropertiesMixin,
+    ImagesMixin,
+    EndnotesMixin,
 ):
     """Word document editor with OOXML-level control."""
 
@@ -48,6 +64,10 @@ __all__ = [
     "CT",
     "RELS",
     "XML_SPACE",
+    "WP",
+    "DC",
+    "DCTERMS",
+    "CP",
     "NSMAP",
     "REL_TYPES",
     "CT_TYPES",
