@@ -117,9 +117,13 @@ class TestSetSectionProperties:
         pg_sz.set(f"{W}w", "12240")
         pg_sz.set(f"{W}h", "15840")
 
-        result = _j(server.set_section_properties(
-            width=15840, height=12240, orientation="landscape",
-        ))
+        result = _j(
+            server.set_section_properties(
+                width=15840,
+                height=12240,
+                orientation="landscape",
+            )
+        )
         assert result["width"] == 15840
         assert result["height"] == 12240
         assert result["orientation"] == "landscape"
@@ -131,19 +135,27 @@ class TestSetSectionProperties:
         sect_pr = etree.SubElement(body, f"{W}sectPr")
         etree.SubElement(sect_pr, f"{W}pgSz")
 
-        result = _j(server.set_section_properties(
-            margin_top=1440, margin_bottom=1440,
-            margin_left=1800, margin_right=1800,
-        ))
+        result = _j(
+            server.set_section_properties(
+                margin_top=1440,
+                margin_bottom=1440,
+                margin_left=1800,
+                margin_right=1800,
+            )
+        )
         assert result["margin_top"] == 1440
 
     def test_set_section_properties_para_section(self):
         """Modify properties of a paragraph-level section break."""
         # Add a section break first
         server.add_section_break("00000004", break_type="nextPage")
-        result = _j(server.set_section_properties(
-            para_id="00000004", width=15840, height=12240,
-        ))
+        result = _j(
+            server.set_section_properties(
+                para_id="00000004",
+                width=15840,
+                height=12240,
+            )
+        )
         assert result["width"] == 15840
 
     def test_set_section_no_sectpr(self):
@@ -179,22 +191,26 @@ class TestAddCrossReference:
 
     def test_cross_ref_to_heading(self):
         """Cross-reference to a heading creates bookmark and hyperlink."""
-        result = _j(server.add_cross_reference(
-            source_para_id="00000004",
-            target_para_id="00000001",
-            text="see Introduction",
-        ))
+        result = _j(
+            server.add_cross_reference(
+                source_para_id="00000004",
+                target_para_id="00000001",
+                text="see Introduction",
+            )
+        )
         assert result["bookmark_name"]
         assert result["source_para_id"] == "00000004"
         assert result["target_para_id"] == "00000001"
 
     def test_cross_ref_existing_bookmark(self):
         """Cross-reference to paragraph with existing bookmark reuses it."""
-        result = _j(server.add_cross_reference(
-            source_para_id="00000002",
-            target_para_id="00000004",  # has bookmark "section_bg"
-            text="see Background",
-        ))
+        result = _j(
+            server.add_cross_reference(
+                source_para_id="00000002",
+                target_para_id="00000004",  # has bookmark "section_bg"
+                text="see Background",
+            )
+        )
         assert result["bookmark_name"] == "section_bg"
 
     def test_cross_ref_bad_source(self):

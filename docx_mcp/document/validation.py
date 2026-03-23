@@ -128,9 +128,7 @@ class ValidationMixin:
                 for tr in tbl.findall(f"{W}tr"):
                     row_col_counts.append(len(tr.findall(f"{W}tc")))
                 if row_col_counts and len(set(row_col_counts)) > 1:
-                    table_issues.append(
-                        {"table_index": idx, "column_counts": row_col_counts}
-                    )
+                    table_issues.append({"table_index": idx, "column_counts": row_col_counts})
         results["tables"] = {"inconsistent_columns": table_issues}
 
         # Protection status

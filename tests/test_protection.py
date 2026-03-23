@@ -74,9 +74,13 @@ class TestSetProperties:
         assert props["title"] == "New Title"
 
     def test_set_multiple_properties(self):
-        result = _j(server.set_properties(
-            title="Updated", creator="New Author", subject="New Subject",
-        ))
+        result = _j(
+            server.set_properties(
+                title="Updated",
+                creator="New Author",
+                subject="New Subject",
+            )
+        )
         assert result["title"] == "Updated"
         assert result["creator"] == "New Author"
         assert result["subject"] == "New Subject"
@@ -90,6 +94,7 @@ class TestSetProperties:
         # Remove dc:description to test creation
         tree = server._doc._trees["docProps/core.xml"]
         from docx_mcp.document import DC
+
         desc = tree.find(f"{DC}description")
         if desc is not None:
             tree.remove(desc)
@@ -192,7 +197,7 @@ class TestMergeDocuments:
                 "word/document.xml",
                 '<?xml version="1.0"?>'
                 '<w:document xmlns:w="http://schemas.openxmlformats.org/'
-                'wordprocessingml/2006/main"/>'
+                'wordprocessingml/2006/main"/>',
             )
         result = _j(server.merge_documents(str(src)))
         assert result["paragraphs_added"] == 0
@@ -207,11 +212,11 @@ class TestMergeDocuments:
                 '<w:document xmlns:w="http://schemas.openxmlformats.org/'
                 'wordprocessingml/2006/main"'
                 ' xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">'
-                '<w:body>'
+                "<w:body>"
                 '<w:p w14:paraId="20000001" w14:textId="77777777">'
-                '<w:r><w:t>With sectPr</w:t></w:r></w:p>'
+                "<w:r><w:t>With sectPr</w:t></w:r></w:p>"
                 '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr>'
-                '</w:body></w:document>',
+                "</w:body></w:document>",
             )
         result = _j(server.merge_documents(str(src)))
         assert result["paragraphs_added"] == 1  # paragraph yes, sectPr no

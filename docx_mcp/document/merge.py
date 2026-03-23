@@ -75,6 +75,7 @@ class MergeMixin:
 
         finally:
             import shutil
+
             shutil.rmtree(tmpdir, ignore_errors=True)
 
         return {"paragraphs_added": added}

@@ -36,10 +36,13 @@ class ListsMixin:
 
         # Determine next abstract num ID and num ID
         existing_abstract = num_tree.findall(f"{W}abstractNum")
-        abs_id = max(
-            (int(a.get(f"{W}abstractNumId", "0")) for a in existing_abstract),
-            default=-1,
-        ) + 1
+        abs_id = (
+            max(
+                (int(a.get(f"{W}abstractNumId", "0")) for a in existing_abstract),
+                default=-1,
+            )
+            + 1
+        )
         existing_nums = num_tree.findall(f"{W}num")
         num_id = max((int(n.get(f"{W}numId", "0")) for n in existing_nums), default=0) + 1
 

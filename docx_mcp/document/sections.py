@@ -105,8 +105,7 @@ class SectionsMixin:
             sect_pr = ppr.find(f"{W}sectPr") if ppr is not None else None
             if sect_pr is None:
                 raise ValueError(
-                    f"No section break on paragraph '{para_id}'. "
-                    "Use add_section_break first."
+                    f"No section break on paragraph '{para_id}'. Use add_section_break first."
                 )
         else:
             # Body-level section

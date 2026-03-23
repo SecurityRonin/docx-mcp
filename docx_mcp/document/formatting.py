@@ -106,6 +106,4 @@ class FormattingMixin:
             self._mark("word/document.xml")
             return {"formatted": True}
 
-        raise ValueError(
-            f"Text '{text}' not found in a single run of paragraph '{para_id}'."
-        )
+        raise ValueError(f"Text '{text}' not found in a single run of paragraph '{para_id}'.")

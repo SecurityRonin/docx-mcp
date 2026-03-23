@@ -308,9 +308,7 @@ def insert_image(
         height_emu: Image height in EMUs.
     """
     return _js(
-        _require_doc().insert_image(
-            para_id, image_path, width_emu=width_emu, height_emu=height_emu
-        )
+        _require_doc().insert_image(para_id, image_path, width_emu=width_emu, height_emu=height_emu)
     )
 
 
@@ -468,9 +466,7 @@ def add_cross_reference(
         target_para_id: paraId of the paragraph being referenced.
         text: Display text for the cross-reference link.
     """
-    return _js(
-        _require_doc().add_cross_reference(source_para_id, target_para_id, text)
-    )
+    return _js(_require_doc().add_cross_reference(source_para_id, target_para_id, text))
 
 
 # ── Protection ─────────────────────────────────────────────────────────────
@@ -488,9 +484,7 @@ def set_document_protection(
               "forms", or "none" (removes protection).
         password: Optional password (hashed with SHA-512). Empty = no password.
     """
-    return _js(
-        _require_doc().set_document_protection(edit, password=password or None)
-    )
+    return _js(_require_doc().set_document_protection(edit, password=password or None))
 
 
 # ── Merge ──────────────────────────────────────────────────────────────────

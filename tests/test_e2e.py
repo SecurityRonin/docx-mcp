@@ -1283,11 +1283,13 @@ class TestSectionsRoundtrip:
 class TestCrossReferenceRoundtrip:
     def test_cross_reference_roundtrip(self, test_docx: Path, tmp_path: Path):
         server.open_document(str(test_docx))
-        _j(server.add_cross_reference(
-            source_para_id="00000004",
-            target_para_id="00000001",
-            text="see Introduction",
-        ))
+        _j(
+            server.add_cross_reference(
+                source_para_id="00000004",
+                target_para_id="00000001",
+                text="see Introduction",
+            )
+        )
         out = str(tmp_path / "rt.docx")
         _j(server.save_document(out))
         server.close_document()

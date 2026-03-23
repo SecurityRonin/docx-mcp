@@ -117,16 +117,12 @@ class TestSetFormatting:
 
     def test_bold_italic_color(self):
         result = _j(
-            server.set_formatting(
-                "00000004", "effective", bold=True, italic=True, color="FF0000"
-            )
+            server.set_formatting("00000004", "effective", bold=True, italic=True, color="FF0000")
         )
         assert result["formatted"] is True
 
     def test_underline(self):
-        result = _j(
-            server.set_formatting("00000004", "contract", underline="single")
-        )
+        result = _j(server.set_formatting("00000004", "contract", underline="single"))
         assert result["formatted"] is True
 
     def test_format_run_with_existing_rpr(self):
@@ -144,7 +140,12 @@ class TestSetFormatting:
         from docx_mcp.document import W
 
         doc = server._doc._trees["word/document.xml"]
-        para = doc.find(f'.//{W}p[@{W.replace("{", "").replace("}", "")}14:paraId="00000005"]'.replace(W.replace("{", "").replace("}", "") + "14:", "{http://schemas.microsoft.com/office/word/2010/wordml}"))
+        para = doc.find(
+            f'.//{W}p[@{W.replace("{", "").replace("}", "")}14:paraId="00000005"]'.replace(
+                W.replace("{", "").replace("}", "") + "14:",
+                "{http://schemas.microsoft.com/office/word/2010/wordml}",
+            )
+        )
         # Simpler: just find the paragraph by iterating
         for p in doc.iter(f"{W}p"):
             pid = p.get("{http://schemas.microsoft.com/office/word/2010/wordml}paraId")

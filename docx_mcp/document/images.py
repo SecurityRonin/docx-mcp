@@ -83,10 +83,13 @@ class ImagesMixin:
         # Add relationship
         rels = self._tree("word/_rels/document.xml.rels")
         existing_rids = [r.get("Id") for r in rels.findall(f"{RELS}Relationship")]
-        rid_num = max(
-            (int(r.replace("rId", "")) for r in existing_rids if r.startswith("rId")),
-            default=0,
-        ) + 1
+        rid_num = (
+            max(
+                (int(r.replace("rId", "")) for r in existing_rids if r.startswith("rId")),
+                default=0,
+            )
+            + 1
+        )
         rid = f"rId{rid_num}"
         rel = etree.SubElement(rels, f"{RELS}Relationship")
         rel.set("Id", rid)
