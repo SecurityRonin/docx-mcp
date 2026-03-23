@@ -420,6 +420,7 @@ class TestAudit:
         """Audit on test fixture (watermark causes DRAFT artifacts)."""
         result = _j(server.audit_document())
         assert result["footnotes"]["valid"] is True
+        assert result["endnotes"]["valid"] is True
         assert result["paraids"]["valid"] is True
         assert result["headings"]["count"] == 2
         assert result["headings"]["issues"] == []
@@ -428,6 +429,8 @@ class TestAudit:
         assert result["bookmarks"]["unpaired_ends"] == 0
         assert result["relationships"]["missing_targets"] == []
         assert result["images"]["missing"] == []
+        assert result["tables"]["inconsistent_columns"] == []
+        assert result["protection"]["edit"] == "none"
         assert isinstance(result["valid"], bool)
 
     def test_audit_after_watermark_removal(self):
@@ -869,6 +872,38 @@ class TestCoverageEdgeCases:
         audit = doc.audit()
         # Should not crash; no missing images from this blip
         assert "images" in audit
+
+    def test_audit_inconsistent_table_columns(self, test_docx: Path):
+        """Audit detects tables with inconsistent column counts."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        tree = doc._trees["word/document.xml"]
+        # Add an extra cell to the first row of the table
+        tbl = tree.find(f".//{W}tbl")
+        first_row = tbl.find(f"{W}tr")
+        tc = etree.SubElement(first_row, f"{W}tc")
+        p = etree.SubElement(tc, f"{W}p")
+        p.set(f"{W14}paraId", "0B0B0B0B")
+        p.set(f"{W14}textId", "77777777")
+        audit = doc.audit()
+        assert len(audit["tables"]["inconsistent_columns"]) >= 1
+        assert audit["valid"] is False
+
+    def test_audit_with_protection(self, test_docx: Path):
+        """Audit reports protection status when set."""
+        server.open_document(str(test_docx))
+        server.set_document_protection("trackedChanges")
+        result = _j(server.audit_document())
+        assert result["protection"]["edit"] == "trackedChanges"
+        assert result["protection"]["enforcement"] == "1"
+
+    def test_audit_no_settings(self, test_docx: Path):
+        """Audit handles missing settings.xml gracefully."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        doc._trees.pop("word/settings.xml", None)
+        audit = doc.audit()
+        assert audit["protection"]["edit"] == "unknown"
 
     def test_audit_artifact_markers(self, test_docx: Path):
         """Audit detects TODO/FIXME markers in text (line 738)."""

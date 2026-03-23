@@ -83,7 +83,7 @@ class TestModifyCell:
         """Modify cell where run has rPr — preserved in deletion markup."""
         from lxml import etree
 
-        from docx_mcp.document import W, W14
+        from docx_mcp.document import W
 
         # Add rPr to the first cell's run
         doc = server._doc._trees["word/document.xml"]
@@ -121,7 +121,6 @@ class TestModifyCell:
 
     def test_modify_cell_no_paragraph(self):
         """Modify cell where tc has no w:p — paragraph created."""
-        from lxml import etree
 
         from docx_mcp.document import W
 

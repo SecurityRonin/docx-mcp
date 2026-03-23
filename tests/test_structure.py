@@ -9,7 +9,7 @@ import pytest
 from lxml import etree
 
 from docx_mcp import server
-from docx_mcp.document import W, W14
+from docx_mcp.document import W
 
 
 def _j(result: str) -> dict | list:

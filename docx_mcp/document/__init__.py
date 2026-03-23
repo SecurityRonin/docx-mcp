@@ -1,33 +1,33 @@
 """DocxDocument: mixin composition and public API."""
 
 from .base import (
-    A,
     CP,
     CT,
     CT_TYPES,
     DC,
     DCTERMS,
     NSMAP,
-    R,
-    RELS,
     REL_TYPES,
-    V,
-    W,
+    RELS,
     W14,
     W15,
     WP,
     XML_SPACE,
+    A,
     BaseMixin,
+    R,
+    V,
+    W,
     _now_iso,
     _preserve,
 )
 from .comments import CommentsMixin
-from .formatting import FormattingMixin
 from .endnotes import EndnotesMixin
 from .footnotes import FootnotesMixin
+from .formatting import FormattingMixin
 from .headers_footers import HeadersFootersMixin
-from .lists import ListsMixin
 from .images import ImagesMixin
+from .lists import ListsMixin
 from .merge import MergeMixin
 from .properties import PropertiesMixin
 from .protection import ProtectionMixin

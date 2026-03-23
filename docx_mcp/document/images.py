@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from .base import A, CT, NSMAP, R, RELS, W, W14, WP
+from .base import CT, RELS, W14, WP, A, R, W
 
 
 class ImagesMixin:
@@ -75,7 +75,7 @@ class ImagesMixin:
         # Copy image to word/media/
         media_dir = self.workdir / "word" / "media"
         media_dir.mkdir(parents=True, exist_ok=True)
-        existing = list(media_dir.glob(f"image*.*"))
+        existing = list(media_dir.glob("image*.*"))
         idx = len(existing) + 1
         filename = f"image{idx}.{ext}"
         shutil.copy2(str(src), str(media_dir / filename))
@@ -83,7 +83,10 @@ class ImagesMixin:
         # Add relationship
         rels = self._tree("word/_rels/document.xml.rels")
         existing_rids = [r.get("Id") for r in rels.findall(f"{RELS}Relationship")]
-        rid_num = max((int(r.replace("rId", "")) for r in existing_rids if r.startswith("rId")), default=0) + 1
+        rid_num = max(
+            (int(r.replace("rId", "")) for r in existing_rids if r.startswith("rId")),
+            default=0,
+        ) + 1
         rid = f"rId{rid_num}"
         rel = etree.SubElement(rels, f"{RELS}Relationship")
         rel.set("Id", rid)

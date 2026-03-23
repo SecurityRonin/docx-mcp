@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from lxml import etree
-
-from .base import A, R, RELS, V, W, W14
+from .base import RELS, W14, A, R, V, W
 
 
 class ValidationMixin:
@@ -119,6 +117,36 @@ class ValidationMixin:
                         img_issues.append({"rId": embed, "target": target})
         results["images"] = {"missing": img_issues}
 
+        # Endnotes
+        results["endnotes"] = self.validate_endnotes()
+
+        # Tables — check consistent column counts per table
+        table_issues = []
+        if doc is not None:
+            for idx, tbl in enumerate(doc.iter(f"{W}tbl")):
+                row_col_counts = []
+                for tr in tbl.findall(f"{W}tr"):
+                    row_col_counts.append(len(tr.findall(f"{W}tc")))
+                if row_col_counts and len(set(row_col_counts)) > 1:
+                    table_issues.append(
+                        {"table_index": idx, "column_counts": row_col_counts}
+                    )
+        results["tables"] = {"inconsistent_columns": table_issues}
+
+        # Protection status
+        settings = self._tree("word/settings.xml")
+        if settings is not None:
+            prot = settings.find(f"{W}documentProtection")
+            if prot is not None:
+                results["protection"] = {
+                    "edit": prot.get(f"{W}edit", ""),
+                    "enforcement": prot.get(f"{W}enforcement", "0"),
+                }
+            else:
+                results["protection"] = {"edit": "none", "enforcement": "0"}
+        else:
+            results["protection"] = {"edit": "unknown", "enforcement": "0"}
+
         # Artifacts
         artifacts = []
         for marker in ["DRAFT", "TODO", "FIXME", "XXX"]:
@@ -131,11 +159,13 @@ class ValidationMixin:
         # Overall
         results["valid"] = (
             results["footnotes"].get("valid", True)
+            and results["endnotes"].get("valid", True)
             and results["paraids"].get("valid", True)
             and not results["headings"].get("issues")
             and results["bookmarks"].get("unpaired_starts", 0) == 0
             and results["bookmarks"].get("unpaired_ends", 0) == 0
             and not rel_issues
             and not img_issues
+            and not table_issues
         )
         return results

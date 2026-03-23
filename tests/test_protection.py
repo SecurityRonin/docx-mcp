@@ -7,10 +7,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from lxml import etree
 
 from docx_mcp import server
-from docx_mcp.document import W, W14
 
 
 def _j(result: str) -> dict | list:

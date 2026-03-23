@@ -6,7 +6,6 @@ from lxml import etree
 
 from .base import CP, DC, DCTERMS
 
-
 # Maps property name -> XML tag
 _PROP_MAP = {
     "title": f"{DC}title",

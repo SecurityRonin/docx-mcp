@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lxml import etree
 
-from .base import NSMAP, W, W14, _preserve
+from .base import NSMAP, W14, W, _preserve
 
 
 class EndnotesMixin:

@@ -11,22 +11,30 @@
   <img width="380" height="200" src="https://glama.ai/mcp/servers/SecurityRonin/docx-mcp/badges/card.svg" alt="docx-mcp MCP server" />
 </a>
 
-MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, and structural validation.
+MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, tables, images, sections, and structural validation.
 
-The only cross-platform MCP server that combines **track changes**, **comments**, and **footnotes** in a single package — with OOXML-level structural validation that no other server offers.
+The only cross-platform MCP server that combines **track changes**, **comments**, **footnotes**, **tables**, **formatting**, **images**, **sections**, **cross-references**, **document merge**, and **protection** in a single package — with OOXML-level structural validation that no other server offers.
 
 ## Features
 
 | Capability | Description |
 |---|---|
 | **Track changes** | Insert/delete text with proper `w:ins`/`w:del` markup — shows as revisions in Word |
+| **Accept/reject changes** | Accept or reject tracked changes (all or by author) |
+| **Character formatting** | Bold, italic, underline, color — with tracked-change markup |
 | **Comments** | Add comments, reply to threads, read existing comments |
-| **Footnotes** | Add footnotes, list all footnotes, validate cross-references |
-| **ParaId validation** | Check uniqueness across all document parts (headers, footers, footnotes) |
+| **Footnotes & endnotes** | Add, list, and validate cross-references for both |
+| **Tables** | Create tables, modify cells, add/delete rows — all with tracked changes |
+| **Lists** | Apply bullet or numbered list formatting to paragraphs |
+| **Images** | List embedded images, insert new images with dimensions |
+| **Headers/footers** | Read and edit header/footer content with tracked changes |
+| **Styles & properties** | Read styles, get/set document properties (title, creator, etc.) |
+| **Sections & page breaks** | Insert page/section breaks, set page size/orientation/margins |
+| **Cross-references** | Add internal hyperlinks between paragraphs with bookmarks |
+| **Document merge** | Merge content from another DOCX with automatic paraId remapping |
+| **Document protection** | Set tracked-changes/read-only/comments protection with SHA-512 passwords |
+| **Structural audit** | Validate footnotes, endnotes, paraIds, headings, bookmarks, tables, images, protection |
 | **Watermark removal** | Detect and remove VML watermarks (e.g., DRAFT) from headers |
-| **Structural audit** | Validate footnotes, paraIds, heading levels, bookmarks, relationships, images |
-| **Text search** | Search across body, footnotes, and comments — plain text or regex |
-| **Heading extraction** | Get the full heading structure with levels and paragraph IDs |
 
 ## Installation
 
@@ -109,7 +117,7 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 }
 ```
 
-## Available Tools
+## Available Tools (37)
 
 ### Document Lifecycle
 
@@ -134,6 +142,25 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `insert_text` | Insert text with tracked-change markup (`w:ins`) |
 | `delete_text` | Mark text as deleted with tracked-change markup (`w:del`) |
+| `accept_changes` | Accept tracked changes (all or by author) |
+| `reject_changes` | Reject tracked changes (all or by author) |
+| `set_formatting` | Apply bold/italic/underline/color with tracked-change markup |
+
+### Tables
+
+| Tool | Description |
+|---|---|
+| `get_tables` | Get all tables with row/column counts and cell content |
+| `add_table` | Insert a new table after a paragraph with tracked insertion |
+| `modify_cell` | Modify a table cell with tracked changes |
+| `add_table_row` | Add a row to a table with tracked insertion |
+| `delete_table_row` | Delete a table row with tracked changes |
+
+### Lists
+
+| Tool | Description |
+|---|---|
+| `add_list` | Apply bullet or numbered list formatting to paragraphs |
 
 ### Comments
 
@@ -143,13 +170,49 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 | `add_comment` | Add a comment anchored to a paragraph |
 | `reply_to_comment` | Reply to an existing comment (threaded) |
 
-### Footnotes
+### Footnotes & Endnotes
 
 | Tool | Description |
 |---|---|
 | `get_footnotes` | List all footnotes with ID and text |
 | `add_footnote` | Add a footnote with superscript reference |
-| `validate_footnotes` | Cross-reference IDs between document body and footnotes.xml |
+| `validate_footnotes` | Cross-reference footnote IDs between body and footnotes.xml |
+| `get_endnotes` | List all endnotes with ID and text |
+| `add_endnote` | Add an endnote with superscript reference |
+| `validate_endnotes` | Cross-reference endnote IDs between body and endnotes.xml |
+
+### Headers, Footers & Styles
+
+| Tool | Description |
+|---|---|
+| `get_headers_footers` | Get all headers and footers with text content |
+| `edit_header_footer` | Edit header/footer text with tracked changes |
+| `get_styles` | Get all defined styles with ID, name, type, and base style |
+
+### Properties & Images
+
+| Tool | Description |
+|---|---|
+| `get_properties` | Get core document properties (title, creator, dates, revision) |
+| `set_properties` | Set core document properties (title, creator, subject, description) |
+| `get_images` | Get all embedded images with rId, filename, content type, dimensions |
+| `insert_image` | Insert an image after a paragraph with specified dimensions |
+
+### Sections & Cross-References
+
+| Tool | Description |
+|---|---|
+| `add_page_break` | Insert a page break after a paragraph |
+| `add_section_break` | Add a section break (nextPage, continuous, evenPage, oddPage) |
+| `set_section_properties` | Set page size, orientation, and margins for a section |
+| `add_cross_reference` | Add a cross-reference link between paragraphs with bookmarks |
+
+### Protection & Merge
+
+| Tool | Description |
+|---|---|
+| `set_document_protection` | Set document protection (trackedChanges, readOnly, comments, forms) |
+| `merge_documents` | Merge content from another DOCX with paraId remapping |
 
 ### Validation & Audit
 
@@ -157,7 +220,7 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `validate_paraids` | Check paraId uniqueness and range validity across all parts |
 | `remove_watermark` | Remove VML watermarks from document headers |
-| `audit_document` | Comprehensive structural audit (footnotes, paraIds, headings, bookmarks, relationships, images, artifacts) |
+| `audit_document` | Comprehensive structural audit (footnotes, endnotes, paraIds, headings, bookmarks, tables, relationships, images, protection, artifacts) |
 
 ## Example Workflow
 

@@ -307,7 +307,11 @@ def insert_image(
         width_emu: Image width in EMUs (914400 = 1 inch).
         height_emu: Image height in EMUs.
     """
-    return _js(_require_doc().insert_image(para_id, image_path, width_emu=width_emu, height_emu=height_emu))
+    return _js(
+        _require_doc().insert_image(
+            para_id, image_path, width_emu=width_emu, height_emu=height_emu
+        )
+    )
 
 
 # ── Endnotes ───────────────────────────────────────────────────────────────

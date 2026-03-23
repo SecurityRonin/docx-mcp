@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lxml import etree
 
-from .base import W, W14, _preserve
+from .base import W, _preserve
 
 
 class ReferencesMixin:

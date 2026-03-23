@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docx-mcp-server"
-version = "0.1.2"
-description = "MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, and structural validation"
+version = "0.2.0"
+description = "MCP server for reading and editing Word (.docx) documents with track changes, comments, footnotes, tables, images, sections, and structural validation"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -50,6 +50,10 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E501"]  # inline XML templates
+"tests/test_tracks.py" = ["E501"]  # complex assertion expressions
 
 # ── Pytest ──────────────────────────────────────────────────────────────────
 

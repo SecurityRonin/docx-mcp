@@ -7,7 +7,7 @@ import re
 
 from lxml import etree
 
-from .base import W, W14, A, R, RELS
+from .base import W14, W
 
 
 class ReadingMixin:
