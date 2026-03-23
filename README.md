@@ -49,10 +49,11 @@ pip install docx-mcp-server
 uvx docx-mcp-server
 ```
 
-> **Optional:** Install the companion [skill](skill/SKILL.md) for Claude Code — it teaches Claude when and how to use the tools automatically:
+> **Optional:** Install the companion [skill](docx_mcp/skill/SKILL.md) for Claude Code — it teaches Claude when and how to use the tools automatically:
 > ```bash
-> curl -sSL https://raw.githubusercontent.com/SecurityRonin/docx-mcp/main/install.sh | bash
+> docx-mcp install-skill
 > ```
+> The skill ships with the package and updates when you upgrade. Run `docx-mcp update-skill` after upgrading to refresh it.
 
 ## Configuration
 

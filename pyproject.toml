@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-docx-mcp = "docx_mcp.server:main"
+docx-mcp = "docx_mcp.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/SecurityRonin/docx-mcp"
