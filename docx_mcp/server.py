@@ -121,6 +121,79 @@ def get_tables() -> str:
     return _js(_require_doc().get_tables())
 
 
+@mcp.tool()
+def add_table(
+    para_id: str,
+    rows: int,
+    cols: int,
+    author: str = "Claude",
+) -> str:
+    """Insert a new table after a paragraph with tracked insertion.
+
+    Args:
+        para_id: paraId of the paragraph to insert after.
+        rows: Number of rows.
+        cols: Number of columns.
+        author: Author name for the revision.
+    """
+    return _js(_require_doc().add_table(para_id, rows, cols, author=author))
+
+
+@mcp.tool()
+def modify_cell(
+    table_idx: int,
+    row: int,
+    col: int,
+    text: str,
+    author: str = "Claude",
+) -> str:
+    """Modify a table cell with tracked changes (delete old, insert new).
+
+    Args:
+        table_idx: Table index (0-based).
+        row: Row index (0-based).
+        col: Column index (0-based).
+        text: New cell text.
+        author: Author name for the revision.
+    """
+    return _js(_require_doc().modify_cell(table_idx, row, col, text, author=author))
+
+
+@mcp.tool()
+def add_table_row(
+    table_idx: int,
+    row_idx: int = -1,
+    cells: list[str] | None = None,
+    author: str = "Claude",
+) -> str:
+    """Add a row to a table with tracked insertion.
+
+    Args:
+        table_idx: Table index (0-based).
+        row_idx: Insert at this row index. -1 = append at end.
+        cells: Cell text content. Empty = empty cells.
+        author: Author name for the revision.
+    """
+    idx = row_idx if row_idx >= 0 else None
+    return _js(_require_doc().add_table_row(table_idx, row_idx=idx, cells=cells, author=author))
+
+
+@mcp.tool()
+def delete_table_row(
+    table_idx: int,
+    row_idx: int,
+    author: str = "Claude",
+) -> str:
+    """Delete a table row with tracked changes.
+
+    Args:
+        table_idx: Table index (0-based).
+        row_idx: Row index to delete (0-based).
+        author: Author name for the revision.
+    """
+    return _js(_require_doc().delete_table_row(table_idx, row_idx, author=author))
+
+
 # ── Styles ─────────────────────────────────────────────────────────────────
 
 
