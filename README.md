@@ -11,61 +11,47 @@
   <img width="380" height="200" src="https://glama.ai/mcp/servers/SecurityRonin/docx-mcp/badges/card.svg" alt="docx-mcp MCP server" />
 </a>
 
-MCP server for creating, reading, and editing Word (.docx) documents with track changes, comments, footnotes, tables, images, sections, and structural validation.
+Give your AI coding agent the ability to create, read, and edit Word documents. Every edit appears as a tracked change in Microsoft Word — red strikethrough for deletions, green underline for insertions, comments in the sidebar — so your colleagues see exactly what changed and why.
 
-The only cross-platform MCP server that combines **document creation**, **markdown-to-DOCX conversion**, **track changes**, **comments**, **footnotes**, **tables**, **formatting**, **images**, **sections**, **cross-references**, **document merge**, and **protection** in a single package — with OOXML-level structural validation that no other server offers.
+## Who This Is For
 
-## Features
+**Professionals who produce Word deliverables and want their AI agent to handle the document work directly:**
 
-| Capability | Description |
-|---|---|
-| **Create from scratch** | Create blank documents or from .dotx templates |
-| **Markdown to DOCX** | Convert GitHub-Flavored Markdown to .docx with headings, tables, lists, images, footnotes, code blocks, and smart typography |
-| **Track changes** | Insert/delete text with proper `w:ins`/`w:del` markup — shows as revisions in Word |
-| **Accept/reject changes** | Accept or reject tracked changes (all or by author) |
-| **Character formatting** | Bold, italic, underline, color — with tracked-change markup |
-| **Comments** | Add comments, reply to threads, read existing comments |
-| **Footnotes & endnotes** | Add, list, and validate cross-references for both |
-| **Tables** | Create tables, modify cells, add/delete rows — all with tracked changes |
-| **Lists** | Apply bullet or numbered list formatting to paragraphs |
-| **Images** | List embedded images, insert new images with dimensions |
-| **Headers/footers** | Read and edit header/footer content with tracked changes |
-| **Styles & properties** | Read styles, get/set document properties (title, creator, etc.) |
-| **Sections & page breaks** | Insert page/section breaks, set page size/orientation/margins |
-| **Cross-references** | Add internal hyperlinks between paragraphs with bookmarks |
-| **Document merge** | Merge content from another DOCX with automatic paraId remapping |
-| **Document protection** | Set tracked-changes/read-only/comments protection with SHA-512 passwords |
-| **Structural audit** | Validate footnotes, endnotes, paraIds, headings, bookmarks, tables, images, protection |
-| **Watermark removal** | Detect and remove VML watermarks (e.g., DRAFT) from headers |
+- **Legal** — contract review with tracked redlines, batch clause replacement across templates, comment annotations explaining each change, footnote management
+- **Security & Penetration Testing** — generate pentest reports from markdown findings, merge appendices from multiple engagements, add executive-summary comments, remove DRAFT watermarks before delivery
+- **Consulting** — build proposals and SOWs from templates, convert meeting notes to formatted deliverables, bulk-update payment terms across document sets
+- **Compliance & Audit** — structural validation of document integrity, cross-reference checking, heading-level audits, protection enforcement
+
+## What You Can Ask Your Agent To Do
+
+**Review a contract:**
+> "Open contract.docx, find every instance of 'Net 30', change it to 'Net 60', and add a comment on each explaining it was updated per Amendment 3. Save as contract_revised.docx."
+
+**Generate a report from markdown:**
+> "Convert my pentest-findings.md to a Word document using the client's report template. Add footnotes for each CVE reference."
+
+**Batch-edit a template library:**
+> "Open the MSA template, replace 'ACME Corp' with 'GlobalTech Inc' everywhere, update the effective date in the header, and set document protection to track-changes-only."
+
+**Audit a document before sending:**
+> "Open the final deliverable, run a structural audit, check for any DRAFT or TODO markers, validate all footnote cross-references, and remove any watermarks."
+
+Your agent handles the entire workflow — opening the file, navigating the structure, making precise edits with full revision history, validating integrity, and saving — while you focus on the substance.
 
 ## Installation
+
+**Claude Code** (recommended):
 
 ```bash
 claude mcp add docx-mcp -- uvx docx-mcp-server
 ```
 
-That's it. The companion [skill](docx_mcp/skill/SKILL.md) — which teaches Claude the OOXML workflow patterns, pitfalls, and audit checklist — auto-installs the first time the server starts and auto-updates on every upgrade.
+That's it. A companion [skill](docx_mcp/skill/SKILL.md) auto-installs the first time the server starts, teaching Claude the document editing workflow, OOXML pitfalls, and audit checklist. It auto-updates on every upgrade.
 
 <details>
-<summary>Other installation methods</summary>
+<summary>Other platforms and installation methods</summary>
 
-**With pip:**
-
-```bash
-pip install docx-mcp-server
-```
-
-**Manual skill install** (only needed if auto-install can't write to `~/.claude/skills/`):
-
-```bash
-docx-mcp install-skill
-```
-
-</details>
-
-## Configuration
-
-### Claude Desktop / Claude Code
+**Claude Desktop:**
 
 Add to your MCP settings:
 
@@ -80,7 +66,7 @@ Add to your MCP settings:
 }
 ```
 
-### Cursor / Windsurf / VS Code
+**Cursor / Windsurf / VS Code:**
 
 Add to your MCP configuration file:
 
@@ -95,9 +81,7 @@ Add to your MCP configuration file:
 }
 ```
 
-### OpenClaw
-
-Add to your `openclaw.yaml`:
+**OpenClaw:**
 
 ```yaml
 mcpServers:
@@ -107,26 +91,69 @@ mcpServers:
       - docx-mcp-server
 ```
 
-Or via the CLI:
+**With pip:**
 
 ```bash
-openclaw config set mcpServers.docx-mcp.command "uvx"
-openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
+pip install docx-mcp-server
 ```
 
-### With pip install
+</details>
 
-```json
-{
-  "mcpServers": {
-    "docx-mcp": {
-      "command": "docx-mcp"
-    }
-  }
-}
+## Capabilities
+
+| Capability | What your agent can do |
+|---|---|
+| **Create documents** | Start blank, from a `.dotx` template, or from markdown — headings, tables, lists, images, footnotes, code blocks, smart typography |
+| **Track changes** | Insert and delete text with proper revision marks that show up in Word's review pane |
+| **Comments** | Add comments anchored to specific paragraphs, reply to comment threads |
+| **Find and replace** | Search by text or regex across body, footnotes, and comments — then make targeted edits |
+| **Tables** | Create tables, modify cells, add or delete rows — all with revision tracking |
+| **Footnotes & endnotes** | Add, list, and validate cross-references |
+| **Formatting** | Bold, italic, underline, color — with revision tracking so formatting changes are visible |
+| **Headers & footers** | Read and edit header/footer content with tracked changes |
+| **Images** | List embedded images, insert new ones with specified dimensions |
+| **Sections & layout** | Page breaks, section breaks, page size, orientation, margins |
+| **Cross-references** | Internal hyperlinks between paragraphs with bookmarks |
+| **Document merge** | Combine content from multiple DOCX files |
+| **Protection** | Lock documents for tracked-changes-only, read-only, or comments-only with passwords |
+| **Structural audit** | Validate footnotes, headings, bookmarks, images, and internal consistency before delivery |
+| **Watermark removal** | Detect and strip DRAFT watermarks from headers |
+
+## Example: Contract Review with Redlines
+
+```
+1. open_document("services-agreement.docx")
+2. get_headings()                              → see document structure
+3. search_text("30 days")                      → find the payment clause
+4. delete_text(para_id, "30 days")             → tracked deletion  (red strikethrough)
+5. insert_text(para_id, "60 days")             → tracked insertion (green underline)
+6. add_comment(para_id, "Extended per client request — see Amendment 3")
+7. audit_document()                            → verify structural integrity
+8. save_document("services-agreement_redlined.docx")
 ```
 
-## Available Tools (45)
+Open the output in Word and you see exactly what a human reviewer would produce — revision marks, comments in the margin, clean document structure.
+
+## Example: Pentest Report from Markdown
+
+```
+1. create_from_markdown("pentest-report.docx",
+       md_path="findings.md",
+       template_path="client-template.dotx")
+2. audit_document()                            → verify integrity
+3. save_document()                             → ready for delivery
+```
+
+Your markdown findings — headings, tables of affected hosts, code blocks with proof-of-concept output, severity ratings — become a formatted Word document matching the client's template. Smart typography is applied automatically (curly quotes, em dashes, proper ellipses).
+
+## How It Works
+
+A `.docx` file is a ZIP archive of XML files. This server unpacks the archive, edits the XML directly, and repacks it. This is what gives it the ability to produce real tracked changes, comments, and footnotes — things that higher-level document libraries can't do.
+
+Every edit is validated against the OOXML specification before saving, catching issues like orphaned footnotes, duplicate internal IDs, and broken cross-references that would otherwise cause Word to "repair" (and silently rewrite) your document.
+
+<details>
+<summary>Full tool inventory (45 tools)</summary>
 
 ### Document Lifecycle
 
@@ -134,7 +161,7 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `open_document` | Open a .docx file for reading and editing |
 | `create_document` | Create a new blank .docx (or from a .dotx template) |
-| `create_from_markdown` | Create a .docx from markdown (GitHub-Flavored Markdown) |
+| `create_from_markdown` | Create a .docx from GitHub-Flavored Markdown |
 | `close_document` | Close the current document and clean up |
 | `get_document_info` | Get overview stats (paragraphs, headings, footnotes, comments) |
 | `save_document` | Save changes back to .docx (can overwrite or save to new path) |
@@ -143,16 +170,16 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 
 | Tool | Description |
 |---|---|
-| `get_headings` | Get heading structure with levels, text, styles, and paraIds |
+| `get_headings` | Get heading structure with levels and text |
 | `search_text` | Search across body, footnotes, and comments (text or regex) |
-| `get_paragraph` | Get full text and style of a paragraph by paraId |
+| `get_paragraph` | Get full text and style of a paragraph |
 
 ### Track Changes
 
 | Tool | Description |
 |---|---|
-| `insert_text` | Insert text with tracked-change markup (`w:ins`) |
-| `delete_text` | Mark text as deleted with tracked-change markup (`w:del`) |
+| `insert_text` | Insert text with tracked-change markup |
+| `delete_text` | Mark text as deleted with tracked-change markup |
 | `accept_changes` | Accept tracked changes (all or by author) |
 | `reject_changes` | Reject tracked changes (all or by author) |
 | `set_formatting` | Apply bold/italic/underline/color with tracked-change markup |
@@ -162,9 +189,9 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 | Tool | Description |
 |---|---|
 | `get_tables` | Get all tables with row/column counts and cell content |
-| `add_table` | Insert a new table after a paragraph with tracked insertion |
+| `add_table` | Insert a new table after a paragraph |
 | `modify_cell` | Modify a table cell with tracked changes |
-| `add_table_row` | Add a row to a table with tracked insertion |
+| `add_table_row` | Add a row to a table |
 | `delete_table_row` | Delete a table row with tracked changes |
 
 ### Lists
@@ -187,10 +214,10 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `get_footnotes` | List all footnotes with ID and text |
 | `add_footnote` | Add a footnote with superscript reference |
-| `validate_footnotes` | Cross-reference footnote IDs between body and footnotes.xml |
+| `validate_footnotes` | Validate footnote cross-references |
 | `get_endnotes` | List all endnotes with ID and text |
 | `add_endnote` | Add an endnote with superscript reference |
-| `validate_endnotes` | Cross-reference endnote IDs between body and endnotes.xml |
+| `validate_endnotes` | Validate endnote cross-references |
 
 ### Headers, Footers & Styles
 
@@ -198,16 +225,16 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `get_headers_footers` | Get all headers and footers with text content |
 | `edit_header_footer` | Edit header/footer text with tracked changes |
-| `get_styles` | Get all defined styles with ID, name, type, and base style |
+| `get_styles` | Get all defined styles |
 
 ### Properties & Images
 
 | Tool | Description |
 |---|---|
-| `get_properties` | Get core document properties (title, creator, dates, revision) |
-| `set_properties` | Set core document properties (title, creator, subject, description) |
-| `get_images` | Get all embedded images with rId, filename, content type, dimensions |
-| `insert_image` | Insert an image after a paragraph with specified dimensions |
+| `get_properties` | Get core document properties (title, creator, dates) |
+| `set_properties` | Set core document properties |
+| `get_images` | Get all embedded images with dimensions |
+| `insert_image` | Insert an image after a paragraph |
 
 ### Sections & Cross-References
 
@@ -215,55 +242,30 @@ openclaw config set mcpServers.docx-mcp.args '["docx-mcp-server"]'
 |---|---|
 | `add_page_break` | Insert a page break after a paragraph |
 | `add_section_break` | Add a section break (nextPage, continuous, evenPage, oddPage) |
-| `set_section_properties` | Set page size, orientation, and margins for a section |
-| `add_cross_reference` | Add a cross-reference link between paragraphs with bookmarks |
+| `set_section_properties` | Set page size, orientation, and margins |
+| `add_cross_reference` | Add a cross-reference link between paragraphs |
 
 ### Protection & Merge
 
 | Tool | Description |
 |---|---|
-| `set_document_protection` | Set document protection (trackedChanges, readOnly, comments, forms) |
-| `merge_documents` | Merge content from another DOCX with paraId remapping |
+| `set_document_protection` | Set document protection with optional password |
+| `merge_documents` | Merge content from another DOCX |
 
 ### Validation & Audit
 
 | Tool | Description |
 |---|---|
-| `validate_paraids` | Check paraId uniqueness and range validity across all parts |
+| `validate_paraids` | Check internal ID uniqueness across all document parts |
 | `remove_watermark` | Remove VML watermarks from document headers |
-| `audit_document` | Comprehensive structural audit (footnotes, endnotes, paraIds, headings, bookmarks, tables, relationships, images, protection, artifacts) |
+| `audit_document` | Comprehensive structural audit |
 
-## Example Workflow
-
-```
-1. open_document("/path/to/contract.docx")
-2. get_headings()                          → see document structure
-3. search_text("30 days")                  → find the clause
-4. delete_text(para_id, "30 days")         → tracked deletion
-5. insert_text(para_id, "60 days")         → tracked insertion
-6. add_comment(para_id, "Extended per client request")
-7. audit_document()                        → verify structural integrity
-8. save_document("/path/to/contract_revised.docx")
-```
-
-The resulting document opens in Microsoft Word with proper revision marks — deletions shown as red strikethrough, insertions as green underline, comments in the sidebar.
-
-## How It Works
-
-A .docx file is a ZIP archive of XML files. This server:
-
-1. **Unpacks** the archive to a temporary directory
-2. **Parses** all XML parts with lxml and caches them in memory
-3. **Edits** the cached DOM trees directly (no intermediate abstraction layer)
-4. **Repacks** modified XML back into a valid .docx archive
-
-This approach gives full control over OOXML markup — essential for track changes (`w:ins`/`w:del`), comments (`w:comment` + range markers), and structural validation that higher-level libraries like python-docx don't expose.
+</details>
 
 ## Requirements
 
 - Python 3.10+
-- lxml
-- mistune (for markdown conversion)
+- Works on macOS, Linux, and Windows
 
 ## License
 
