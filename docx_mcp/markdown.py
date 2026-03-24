@@ -78,7 +78,30 @@ class MarkdownConverter:
                 else:
                     self._body.append(el)
 
+        # Post-processing: remove orphaned footnote definitions
+        self._strip_orphan_footnotes()
+
         self._doc._mark("word/document.xml")
+
+    def _strip_orphan_footnotes(self) -> None:
+        """Remove footnote definitions that have no reference in the body.
+
+        Defends against orphaned footnotes that trigger Word's recovery
+        dialog, regardless of parser behavior.
+        """
+        fn_tree = self._doc._tree("word/footnotes.xml")
+        if fn_tree is None:
+            return
+
+        # Collect all footnoteReference IDs from the body
+        ref_ids = {int(ref.get(f"{W}id", "0")) for ref in self._body.iter(f"{W}footnoteReference")}
+
+        # Remove definitions (skip separators 0 and 1) with no body reference
+        for fn in list(fn_tree.findall(f"{W}footnote")):
+            fn_id = int(fn.get(f"{W}id", "0"))
+            if fn_id >= 2 and fn_id not in ref_ids:
+                fn_tree.remove(fn)
+                self._doc._mark("word/footnotes.xml")
 
     def _new_para(self, style: str | None = None) -> etree._Element:
         """Create a new <w:p> with paraId and optional style."""

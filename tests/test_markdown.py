@@ -519,3 +519,39 @@ class TestFootnoteEdgeCases:
         # No footnoteReference should be added
         refs = parent.findall(f".//{W}footnoteReference")
         assert len(refs) == 0
+
+    def test_strip_orphan_footnotes(self, blank_doc: DocxDocument):
+        """Orphaned footnote definitions are removed after rendering."""
+        from lxml import etree
+
+        fn_tree = blank_doc._tree("word/footnotes.xml")
+
+        # Inject an orphan (id=99) before conversion
+        orphan = etree.SubElement(fn_tree, f"{W}footnote")
+        orphan.set(f"{W}id", "99")
+        p = etree.SubElement(orphan, f"{W}p")
+        r = etree.SubElement(p, f"{W}r")
+        t = etree.SubElement(r, f"{W}t")
+        t.text = "Orphan text"
+
+        ids_before = {int(f.get(f"{W}id", "0")) for f in fn_tree.findall(f"{W}footnote")}
+        assert 99 in ids_before
+
+        # Convert — cleanup should strip the orphan but keep the valid footnote
+        MarkdownConverter.convert(blank_doc, "Text[^a]\n\n[^a]: Valid note.")
+
+        ids_after = {int(f.get(f"{W}id", "0")) for f in fn_tree.findall(f"{W}footnote")}
+        assert 99 not in ids_after
+
+        result = blank_doc.validate_footnotes()
+        assert result["valid"] is True
+        assert result["orphan_definitions"] == []
+        assert result["references"] == 1
+        assert result["definitions"] == 1
+
+    def test_strip_orphan_footnotes_no_footnotes_xml(self, blank_doc: DocxDocument):
+        """_strip_orphan_footnotes returns early when footnotes.xml is absent."""
+        del blank_doc._trees["word/footnotes.xml"]
+        converter = MarkdownConverter(blank_doc)
+        # Should not crash
+        converter._strip_orphan_footnotes()
