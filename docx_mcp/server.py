@@ -68,6 +68,28 @@ def close_document() -> str:
 
 
 @mcp.tool()
+def create_document(
+    output_path: str,
+    template_path: str | None = None,
+) -> str:
+    """Create a new blank .docx document (or from a .dotx template).
+
+    The document is automatically opened for editing after creation.
+    Use save_document to save changes, or start editing immediately
+    with insert_text, add_table, etc.
+
+    Args:
+        output_path: Path for the new .docx file.
+        template_path: Optional path to a .dotx template file.
+    """
+    global _doc
+    if _doc is not None:
+        _doc.close()
+    _doc = DocxDocument.create(output_path, template_path=template_path)
+    return _js(_doc.get_info())
+
+
+@mcp.tool()
 def get_document_info() -> str:
     """Get overview stats: paragraph count, headings, footnotes, comments, images."""
     return _js(_require_doc().get_info())

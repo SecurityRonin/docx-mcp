@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
 import pytest
 
+from docx_mcp import server
 from docx_mcp.document import CT, W14, DocxDocument, W
 from tests.conftest import _build_fixture
 
@@ -190,3 +192,29 @@ class TestCreateFromTemplate:
         part_names = {o.get("PartName") for o in ct.findall(f"{CT}Override")}
         assert "/word/numbering.xml" in part_names
         doc.close()
+
+
+class TestCreateDocumentTool:
+    def test_creates_and_opens_document(self, tmp_path: Path):
+        out = tmp_path / "new.docx"
+        result = json.loads(server.create_document(str(out)))
+        assert "paragraph_count" in result  # returns get_info() output
+        assert server._doc is not None
+        assert server._doc.workdir is not None
+
+    def test_closes_previous_document(self, tmp_path: Path, test_docx: Path):
+        # Open an existing doc first
+        server.open_document(str(test_docx))
+        assert server._doc is not None
+        old_workdir = server._doc.workdir
+        # Create new — should close old
+        out = tmp_path / "new.docx"
+        server.create_document(str(out))
+        assert not old_workdir.exists()  # old workdir cleaned up
+
+    def test_with_template(self, tmp_path: Path):
+        template = tmp_path / "tmpl.dotx"
+        _build_fixture(template)
+        out = tmp_path / "from_tmpl.docx"
+        result = json.loads(server.create_document(str(out), template_path=str(template)))
+        assert "paragraph_count" in result
