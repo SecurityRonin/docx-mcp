@@ -6,14 +6,14 @@ import shutil
 import zipfile
 from pathlib import Path
 
-from .base import BaseMixin, _now_iso
+from .base import _now_iso
 
 
 class CreationMixin:
     """Document creation operations."""
 
     @classmethod
-    def create(cls, output_path: str, template_path: str | None = None) -> "CreationMixin":
+    def create(cls, output_path: str, template_path: str | None = None) -> CreationMixin:
         """Create a new DOCX and return an opened instance.
 
         Args:
@@ -70,9 +70,10 @@ def _write_blank_skeleton(path: Path) -> None:
             zf.writestr(name, content.strip())
 
 
-def _ensure_custom_styles(doc: "CreationMixin") -> None:
+def _ensure_custom_styles(doc: CreationMixin) -> None:
     """Add CodeBlock and BlockQuote styles if missing in a template."""
     from lxml import etree
+
     from .base import W
 
     styles = doc._tree("word/styles.xml")
@@ -127,10 +128,11 @@ def _ensure_custom_styles(doc: "CreationMixin") -> None:
         doc._mark("word/styles.xml")
 
 
-def _ensure_numbering(doc: "CreationMixin") -> None:
+def _ensure_numbering(doc: CreationMixin) -> None:
     """Bootstrap numbering.xml if missing in a template."""
     from lxml import etree
-    from .base import CT, NSMAP, RELS, W
+
+    from .base import CT, RELS
 
     if doc._tree("word/numbering.xml") is not None:
         return

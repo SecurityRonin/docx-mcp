@@ -5,10 +5,7 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-import pytest
-
-from docx_mcp import server
-from docx_mcp.document import DocxDocument, W, W14
+from docx_mcp.document import W14, DocxDocument, W
 
 
 class TestCreateBlank:
