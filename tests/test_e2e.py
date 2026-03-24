@@ -511,6 +511,281 @@ class TestSave:
             server.save_document()
 
 
+class TestBackupOnSave:
+    """Backup creation when save overwrites an existing file."""
+
+    def test_overwrite_creates_backup(self, test_docx: Path):
+        """Saving back to source path creates a .bak backup."""
+        original_size = test_docx.stat().st_size
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " modified")
+        result = _j(server.save_document())
+        bak = test_docx.with_suffix(".docx.bak")
+        assert bak.exists()
+        assert bak.stat().st_size == original_size
+        assert result.get("backup") == str(bak)
+
+    def test_overwrite_increments_backup_name(self, test_docx: Path):
+        """If .bak exists, uses .bak2, .bak3, etc."""
+        # Create first backup
+        bak1 = test_docx.with_suffix(".docx.bak")
+        bak1.write_bytes(b"placeholder")
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " edit1")
+        result = _j(server.save_document())
+        bak2 = test_docx.parent / (test_docx.stem + ".docx.bak2")
+        assert bak2.exists()
+        assert result.get("backup") == str(bak2)
+
+    def test_overwrite_skips_many_existing_backups(self, test_docx: Path):
+        """Finds next available name even when .bak through .bak9 exist."""
+        for i in ["", "2", "3"]:
+            bak = test_docx.parent / (test_docx.stem + f".docx.bak{i}")
+            bak.write_bytes(b"placeholder")
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " edit")
+        result = _j(server.save_document())
+        bak4 = test_docx.parent / (test_docx.stem + ".docx.bak4")
+        assert bak4.exists()
+        assert result.get("backup") == str(bak4)
+
+    def test_save_new_path_no_backup(self, test_docx: Path, tmp_path: Path):
+        """Saving to a new (non-existent) path creates no backup."""
+        server.open_document(str(test_docx))
+        out = str(tmp_path / "brand_new.docx")
+        result = _j(server.save_document(out))
+        assert "backup" not in result
+        assert not any(tmp_path.glob("*.bak*"))
+
+    def test_save_overwrite_different_path(self, test_docx: Path, tmp_path: Path):
+        """Saving to an existing different-path file also creates backup."""
+        target = tmp_path / "existing.docx"
+        target.write_bytes(test_docx.read_bytes())
+        original_size = target.stat().st_size
+        server.open_document(str(test_docx))
+        server.insert_text("00000004", " modified")
+        server.save_document(str(target))
+        bak = target.with_suffix(".docx.bak")
+        assert bak.exists()
+        assert bak.stat().st_size == original_size
+
+
+class TestAutoRepairOnSave:
+    """save() auto-repairs known corruption patterns before writing."""
+
+    def test_strips_orphan_footnotes(self, test_docx: Path, tmp_path: Path):
+        """Orphaned footnote definitions are removed on save."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        fn_tree = doc._tree("word/footnotes.xml")
+        # Inject orphan footnote (id=99, no body reference)
+        orphan = etree.SubElement(fn_tree, f"{W}footnote")
+        orphan.set(f"{W}id", "99")
+        p = etree.SubElement(orphan, f"{W}p")
+        r = etree.SubElement(p, f"{W}r")
+        t = etree.SubElement(r, f"{W}t")
+        t.text = "Orphan"
+        doc._mark("word/footnotes.xml")
+
+        out = tmp_path / "repaired.docx"
+        result = _j(server.save_document(str(out)))
+        assert "repairs" in result
+        assert "orphan_footnotes_removed" in result["repairs"]
+        assert result["repairs"]["orphan_footnotes_removed"] == 1
+
+        # Reopen and validate
+        server.open_document(str(out))
+        fn_result = _j(server.validate_footnotes())
+        assert fn_result["valid"] is True
+
+    def test_strips_orphan_endnotes(self, test_docx: Path, tmp_path: Path):
+        """Orphaned endnote definitions are removed on save."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        en_tree = doc._tree("word/endnotes.xml")
+        # Inject orphan endnote
+        orphan = etree.SubElement(en_tree, f"{W}endnote")
+        orphan.set(f"{W}id", "99")
+        p = etree.SubElement(orphan, f"{W}p")
+        r = etree.SubElement(p, f"{W}r")
+        t = etree.SubElement(r, f"{W}t")
+        t.text = "Orphan endnote"
+        doc._mark("word/endnotes.xml")
+
+        out = tmp_path / "repaired.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"]["orphan_endnotes_removed"] == 1
+
+        server.open_document(str(out))
+        en_result = _j(server.validate_endnotes())
+        assert en_result["valid"] is True
+
+    def test_deduplicates_paraids(self, test_docx: Path, tmp_path: Path):
+        """Duplicate paraIds are fixed by regenerating one copy."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        body = doc._tree("word/document.xml").find(f"{W}body")
+        paras = body.findall(f"{W}p")
+        # Force a duplicate paraId
+        dup_id = paras[0].get(f"{W14}paraId")
+        paras[1].set(f"{W14}paraId", dup_id)
+        doc._mark("word/document.xml")
+
+        out = tmp_path / "repaired.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"]["paraids_deduplicated"] >= 1
+
+        server.open_document(str(out))
+        pid_result = _j(server.validate_paraids())
+        assert pid_result["valid"] is True
+
+    def test_removes_broken_rels(self, test_docx: Path, tmp_path: Path):
+        """Internal relationships pointing to missing files are removed."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        rels_tree = doc._tree("word/_rels/document.xml.rels")
+        # Inject broken rel
+        from docx_mcp.document import RELS as RELS_NS
+
+        broken = etree.SubElement(rels_tree, f"{RELS_NS}Relationship")
+        broken.set("Id", "rIdBroken")
+        broken.set("Type", "http://example.com/broken")
+        broken.set("Target", "nonexistent.xml")
+        doc._mark("word/_rels/document.xml.rels")
+
+        out = tmp_path / "repaired.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"]["broken_rels_removed"] >= 1
+
+        server.open_document(str(out))
+        audit = _j(server.audit_document())
+        assert audit["relationships"]["missing_targets"] == []
+
+    def test_no_repairs_needed(self, test_docx: Path, tmp_path: Path):
+        """Clean document has empty repairs dict."""
+        server.open_document(str(test_docx))
+        out = tmp_path / "clean.docx"
+        result = _j(server.save_document(str(out)))
+        repairs = result.get("repairs", {})
+        total = sum(repairs.values()) if repairs else 0
+        assert total == 0
+
+    def test_repair_no_document_tree(self, test_docx: Path, tmp_path: Path):
+        """_pre_save_repair returns early when document.xml tree is gone."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        doc._trees.pop("word/document.xml", None)
+        out = tmp_path / "no_doc.docx"
+        result = _j(server.save_document(str(out)))
+        assert sum(result["repairs"].values()) == 0
+
+    def test_broken_rels_skips_external(self, test_docx: Path, tmp_path: Path):
+        """External relationships are not flagged as broken."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        rels_tree = doc._tree("word/_rels/document.xml.rels")
+        from docx_mcp.document import RELS as RELS_NS
+
+        ext = etree.SubElement(rels_tree, f"{RELS_NS}Relationship")
+        ext.set("Id", "rIdExt")
+        ext.set("Type", "http://example.com/ext")
+        ext.set("Target", "https://example.com")
+        ext.set("TargetMode", "External")
+        doc._mark("word/_rels/document.xml.rels")
+        out = tmp_path / "ext.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"]["broken_rels_removed"] == 0
+
+
+class TestWarnOnSave:
+    """save() includes warnings for issues that can't be auto-repaired."""
+
+    def test_heading_level_skip_warning(self, test_docx: Path, tmp_path: Path):
+        """Heading level jump (H1 → H3) produces a warning."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        body = doc._tree("word/document.xml").find(f"{W}body")
+        # Inject H4 paragraph after existing H1 + H2 (skipping H3)
+        h4 = etree.SubElement(body, f"{W}p")
+        h4.set(f"{W14}paraId", doc._new_para_id())
+        h4.set(f"{W14}textId", "77777777")
+        ppr = etree.SubElement(h4, f"{W}pPr")
+        ps = etree.SubElement(ppr, f"{W}pStyle")
+        ps.set(f"{W}val", "Heading4")
+        r = etree.SubElement(h4, f"{W}r")
+        t = etree.SubElement(r, f"{W}t")
+        t.text = "Skipped heading"
+        doc._mark("word/document.xml")
+
+        out = tmp_path / "warned.docx"
+        result = _j(server.save_document(str(out)))
+        assert "warnings" in result
+        assert any("heading" in w.lower() for w in result["warnings"])
+
+    def test_artifact_marker_warning(self, test_docx: Path, tmp_path: Path):
+        """DRAFT/TODO markers produce a warning."""
+        server.open_document(str(test_docx))
+        # The test fixture already has a DRAFT watermark — but we need text markers
+        server.insert_text("00000004", " TODO: fix this later")
+        out = tmp_path / "warned.docx"
+        result = _j(server.save_document(str(out)))
+        assert any("TODO" in w for w in result.get("warnings", []))
+
+    def test_unpaired_bookmark_warning(self, test_docx: Path, tmp_path: Path):
+        """Unpaired bookmarkStart produces a warning."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        body = doc._tree("word/document.xml").find(f"{W}body")
+        # Inject bookmarkStart with no matching bookmarkEnd
+        bm = etree.SubElement(body[0], f"{W}bookmarkStart")
+        bm.set(f"{W}id", "999")
+        bm.set(f"{W}name", "orphan_bm")
+        doc._mark("word/document.xml")
+        out = tmp_path / "warned.docx"
+        result = _j(server.save_document(str(out)))
+        assert any("unpaired bookmark" in w for w in result["warnings"])
+
+    def test_inconsistent_table_columns_warning(self, test_docx: Path, tmp_path: Path):
+        """Table with inconsistent column counts produces a warning."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        body = doc._tree("word/document.xml").find(f"{W}body")
+        # Build a table with row 1 = 2 cols, row 2 = 3 cols
+        tbl = etree.SubElement(body, f"{W}tbl")
+        tr1 = etree.SubElement(tbl, f"{W}tr")
+        for _ in range(2):
+            tc = etree.SubElement(tr1, f"{W}tc")
+            p = etree.SubElement(tc, f"{W}p")
+            p.set(f"{W14}paraId", doc._new_para_id())
+        tr2 = etree.SubElement(tbl, f"{W}tr")
+        for _ in range(3):
+            tc = etree.SubElement(tr2, f"{W}tc")
+            p = etree.SubElement(tc, f"{W}p")
+            p.set(f"{W14}paraId", doc._new_para_id())
+        doc._mark("word/document.xml")
+        out = tmp_path / "warned.docx"
+        result = _j(server.save_document(str(out)))
+        assert any("inconsistent column" in w for w in result["warnings"])
+
+    def test_warnings_no_document_tree(self, test_docx: Path, tmp_path: Path):
+        """_post_repair_warnings returns empty when document.xml is gone."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        doc._trees.pop("word/document.xml", None)
+        out = tmp_path / "no_doc.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["warnings"] == []
+
+    def test_clean_document_no_warnings(self, test_docx: Path, tmp_path: Path):
+        """Clean document produces no warnings (artifacts from watermark excluded)."""
+        server.open_document(str(test_docx))
+        server.remove_watermark()
+        out = tmp_path / "clean.docx"
+        result = _j(server.save_document(str(out)))
+        warnings = result.get("warnings", [])
+        assert warnings == []
+
+
 class TestRoundtrip:
     def test_full_workflow(self, test_docx: Path, tmp_path: Path):
         """Open → edit → comment → footnote → watermark → save → reopen → verify."""

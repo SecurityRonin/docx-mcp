@@ -144,6 +144,15 @@ class BaseMixin:
 
         output = Path(output_path) if output_path else self.source_path
 
+        # Backup existing file before overwriting
+        backup_path = self._backup_if_exists(output)
+
+        # Auto-repair known corruption patterns
+        repairs = self._pre_save_repair()
+
+        # Lightweight validation — warn about issues that can't be auto-repaired
+        warnings = self._post_repair_warnings()
+
         # Serialize modified trees
         for rel_path in self._modified:
             tree = self._trees.get(rel_path)
@@ -169,11 +178,154 @@ class BaseMixin:
 
         modified = sorted(self._modified)
         self._modified.clear()
-        return {
+        result = {
             "path": str(output),
             "size_bytes": output.stat().st_size,
             "modified_parts": modified,
+            "repairs": repairs,
+            "warnings": warnings,
         }
+        if backup_path:
+            result["backup"] = str(backup_path)
+        return result
+
+    @staticmethod
+    def _backup_if_exists(output: Path) -> Path | None:
+        """Create a backup of output if it already exists.
+
+        Uses .bak, .bak2, .bak3, ... to avoid overwriting previous backups.
+        """
+        if not output.exists():
+            return None
+        # Find next available backup name
+        bak = output.with_suffix(output.suffix + ".bak")
+        if not bak.exists():
+            shutil.copy2(output, bak)
+            return bak
+        n = 2
+        while True:
+            bak = output.parent / (output.stem + output.suffix + f".bak{n}")
+            if not bak.exists():
+                break
+            n += 1
+        shutil.copy2(output, bak)
+        return bak
+
+    # ── Pre-save auto-repair ─────────────────────────────────────────────────
+
+    def _pre_save_repair(self) -> dict:
+        """Auto-repair known corruption patterns before writing.
+
+        Returns a dict of repair counts (all zero if nothing was fixed).
+        """
+        repairs: dict[str, int] = {
+            "orphan_footnotes_removed": 0,
+            "orphan_endnotes_removed": 0,
+            "paraids_deduplicated": 0,
+            "broken_rels_removed": 0,
+        }
+
+        doc = self._tree("word/document.xml")
+        if doc is None:
+            return repairs
+
+        body = doc.find(f"{W}body")
+
+        # ── Orphan footnotes ──────────────────────────────────────────────
+        fn_tree = self._tree("word/footnotes.xml")
+        if fn_tree is not None and body is not None:
+            ref_ids = {int(ref.get(f"{W}id", "0")) for ref in body.iter(f"{W}footnoteReference")}
+            for fn in list(fn_tree.findall(f"{W}footnote")):
+                fn_id = int(fn.get(f"{W}id", "0"))
+                if fn_id >= 2 and fn_id not in ref_ids:
+                    fn_tree.remove(fn)
+                    repairs["orphan_footnotes_removed"] += 1
+            if repairs["orphan_footnotes_removed"]:
+                self._mark("word/footnotes.xml")
+
+        # ── Orphan endnotes ───────────────────────────────────────────────
+        en_tree = self._tree("word/endnotes.xml")
+        if en_tree is not None and body is not None:
+            ref_ids = {int(ref.get(f"{W}id", "0")) for ref in body.iter(f"{W}endnoteReference")}
+            for en in list(en_tree.findall(f"{W}endnote")):
+                en_id_str = en.get(f"{W}id", "0")
+                if en_id_str in ("0", "-1"):
+                    continue
+                en_id = int(en_id_str)
+                if en_id not in ref_ids:
+                    en_tree.remove(en)
+                    repairs["orphan_endnotes_removed"] += 1
+            if repairs["orphan_endnotes_removed"]:
+                self._mark("word/endnotes.xml")
+
+        # ── Duplicate paraIds ─────────────────────────────────────────────
+        seen: dict[str, bool] = {}
+        for rel_path, tree in self._trees.items():
+            if not rel_path.endswith(".xml"):
+                continue
+            for elem in tree.iter():
+                pid = elem.get(f"{W14}paraId")
+                if pid is None:
+                    continue
+                if pid in seen:
+                    elem.set(f"{W14}paraId", self._new_para_id())
+                    repairs["paraids_deduplicated"] += 1
+                    self._mark(rel_path)
+                else:
+                    seen[pid] = True
+
+        # ── Broken internal relationships ─────────────────────────────────
+        rels_tree = self._tree("word/_rels/document.xml.rels")
+        if rels_tree is not None:
+            for rel in list(rels_tree.findall(f"{RELS}Relationship")):
+                if rel.get("TargetMode") == "External":
+                    continue
+                target = rel.get("Target", "")
+                if target and not (self.workdir / "word" / target).exists():
+                    rels_tree.remove(rel)
+                    repairs["broken_rels_removed"] += 1
+            if repairs["broken_rels_removed"]:
+                self._mark("word/_rels/document.xml.rels")
+
+        return repairs
+
+    def _post_repair_warnings(self) -> list[str]:
+        """Check for issues that can't be auto-repaired. Returns warning strings."""
+        warnings: list[str] = []
+        doc = self._tree("word/document.xml")
+        if doc is None:
+            return warnings
+
+        # Heading level skips
+        headings = self._find_headings(doc)
+        prev = 0
+        for h in headings:
+            if h["level"] > prev + 1 and prev > 0:
+                warnings.append(
+                    f"Heading level skip: H{prev} -> H{h['level']} at '{h['text'][:50]}'"
+                )
+            prev = h["level"]
+
+        # Unpaired bookmarks
+        starts = {e.get(f"{W}id") for e in doc.iter(f"{W}bookmarkStart") if e.get(f"{W}id")}
+        ends = {e.get(f"{W}id") for e in doc.iter(f"{W}bookmarkEnd") if e.get(f"{W}id")}
+        unpaired = len(starts - ends) + len(ends - starts)
+        if unpaired:
+            warnings.append(f"{unpaired} unpaired bookmark(s)")
+
+        # Inconsistent table columns
+        for idx, tbl in enumerate(doc.iter(f"{W}tbl")):
+            counts = [len(tr.findall(f"{W}tc")) for tr in tbl.findall(f"{W}tr")]
+            if counts and len(set(counts)) > 1:
+                warnings.append(f"Table {idx + 1} has inconsistent column counts: {counts}")
+
+        # Artifact markers (DRAFT, TODO, FIXME, XXX)
+        for marker in ("DRAFT", "TODO", "FIXME", "XXX"):
+            hits = self.search_text(marker)
+            for hit in hits:
+                warnings.append(f"{marker} marker in {hit['source']}: '{hit['text'][:60]}'")
+
+        return warnings
 
     # ── Private helpers ─────────────────────────────────────────────────────
 
