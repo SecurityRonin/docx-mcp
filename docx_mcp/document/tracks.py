@@ -80,9 +80,7 @@ class TracksMixin:
             # Fallback: search w:del elements (delete-then-insert pattern)
             if not placed:
                 for del_el in para.findall(f"{W}del"):
-                    del_text = "".join(
-                        t.text for t in del_el.iter(f"{W}delText") if t.text
-                    )
+                    del_text = "".join(t.text for t in del_el.iter(f"{W}delText") if t.text)
                     if position in del_text:
                         del_el.addnext(ins)
                         placed = True
