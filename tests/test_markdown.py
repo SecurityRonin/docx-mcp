@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import struct
 from pathlib import Path
 
 import pytest
 
+from docx_mcp import server
 from docx_mcp.document import W14, DocxDocument, W
 from docx_mcp.markdown import MarkdownConverter
 
@@ -355,3 +357,57 @@ def _write_tiny_png(path: Path) -> None:
         + _chunk(b"IDAT", idat_data)
         + _chunk(b"IEND", b"")
     )
+
+
+# ── Server tool tests ──────────────────────────────────────────────────────
+
+
+class TestCreateFromMarkdownTool:
+    def test_from_raw_text(self, tmp_path: Path):
+        out = tmp_path / "from_md.docx"
+        result = json.loads(server.create_from_markdown(str(out), markdown="# Hello\n\nWorld"))
+        assert "paragraph_count" in result
+        assert server._doc is not None
+
+    def test_from_file(self, tmp_path: Path):
+        md_file = tmp_path / "input.md"
+        md_file.write_text("# From File\n\nContent here.")
+        out = tmp_path / "from_file.docx"
+        result = json.loads(server.create_from_markdown(str(out), md_path=str(md_file)))
+        assert "paragraph_count" in result
+
+    def test_both_inputs_raises(self, tmp_path: Path):
+        out = tmp_path / "err.docx"
+        md_file = tmp_path / "input.md"
+        md_file.write_text("# Test")
+        result = server.create_from_markdown(str(out), md_path=str(md_file), markdown="# Test")
+        assert "error" in result.lower() or "mutually exclusive" in result.lower()
+
+    def test_no_input_raises(self, tmp_path: Path):
+        out = tmp_path / "err.docx"
+        result = server.create_from_markdown(str(out))
+        assert "error" in result.lower() or "either" in result.lower()
+
+    def test_with_template(self, tmp_path: Path):
+        from tests.conftest import _build_fixture
+
+        template = tmp_path / "tmpl.dotx"
+        _build_fixture(template)
+        out = tmp_path / "from_tmpl_md.docx"
+        result = json.loads(
+            server.create_from_markdown(
+                str(out), markdown="# Template Test", template_path=str(template)
+            )
+        )
+        assert "paragraph_count" in result
+
+    def test_image_path_relative_to_md_file(self, tmp_path: Path):
+        # Create image in same dir as markdown file
+        img = tmp_path / "subdir" / "test.png"
+        img.parent.mkdir(parents=True)
+        _write_tiny_png(img)
+        md_file = tmp_path / "subdir" / "doc.md"
+        md_file.write_text("![img](test.png)")
+        out = tmp_path / "output.docx"
+        result = json.loads(server.create_from_markdown(str(out), md_path=str(md_file)))
+        assert "paragraph_count" in result

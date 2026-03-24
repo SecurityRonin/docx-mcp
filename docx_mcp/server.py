@@ -90,6 +90,56 @@ def create_document(
 
 
 @mcp.tool()
+def create_from_markdown(
+    output_path: str,
+    md_path: str | None = None,
+    markdown: str | None = None,
+    template_path: str | None = None,
+) -> str:
+    """Create a new .docx document from markdown content.
+
+    Supports full GitHub-Flavored Markdown: headings, bold/italic/strikethrough,
+    links, images, bullet/numbered/nested lists, code blocks, blockquotes,
+    tables, footnotes, and task lists. Smart typography (curly quotes, em/en
+    dashes, ellipses) is applied automatically.
+
+    Provide exactly one of md_path or markdown. The document is automatically
+    opened for editing after creation.
+
+    Args:
+        output_path: Path for the new .docx file.
+        md_path: Path to a .md file. Mutually exclusive with markdown.
+        markdown: Raw markdown text. Mutually exclusive with md_path.
+        template_path: Optional path to a .dotx template file.
+    """
+    if md_path and markdown:
+        return "Error: md_path and markdown are mutually exclusive — provide one, not both."
+    if not md_path and not markdown:
+        return "Error: Either md_path or markdown must be provided."
+
+    global _doc
+    if _doc is not None:
+        _doc.close()
+
+    _doc = DocxDocument.create(output_path, template_path=template_path)
+
+    base_dir = None
+    if md_path:
+        from pathlib import Path
+
+        p = Path(md_path)
+        if not p.exists():
+            return f"Error: Markdown file not found: {md_path}"
+        markdown = p.read_text(encoding="utf-8")
+        base_dir = p.parent
+
+    from docx_mcp.markdown import MarkdownConverter
+
+    MarkdownConverter.convert(_doc, markdown, base_dir=base_dir)
+    return _js(_doc.get_info())
+
+
+@mcp.tool()
 def get_document_info() -> str:
     """Get overview stats: paragraph count, headings, footnotes, comments, images."""
     return _js(_require_doc().get_info())

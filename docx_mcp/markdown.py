@@ -45,9 +45,11 @@ class MarkdownConverter:
 
     def _run(self, text: str) -> None:
         """Parse and render."""
-        # Remove initial blank paragraph(s) from skeleton
+        # Remove existing body content (paragraphs + tables) from skeleton/template
         for p in list(self._body.findall(f"{W}p")):
             self._body.remove(p)
+        for tbl in list(self._body.findall(f"{W}tbl")):
+            self._body.remove(tbl)
 
         if not text.strip():
             return
