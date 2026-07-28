@@ -142,6 +142,8 @@ class FormattingMixin:
         para_id: str,
         text: str | None = None,
         style: str | None = None,
+        tracked: bool = False,
+        author: str = "Claude",
     ) -> dict:
         doc = self._require("word/document.xml")
         para = self._find_para(doc, para_id)
@@ -149,11 +151,41 @@ class FormattingMixin:
             raise ValueError(f"Paragraph '{para_id}' not found")
 
         if text is not None:
-            for run in list(para.findall(f"{W}r")):
-                para.remove(run)
-            run = etree.SubElement(para, f"{W}r")
-            t_el = etree.SubElement(run, f"{W}t")
-            _preserve(t_el, text)
+            if tracked:
+                # ── Tracked: wrap existing runs in w:del, append w:ins ──
+                cid = self._next_markup_id(doc)
+                now = _now_iso()
+
+                # Wrap each existing w:r in w:del
+                for run in list(para.findall(f"{W}r")):
+                    para.remove(run)
+                    # Convert w:t → w:delText inside runs
+                    for t_el in run.iter(f"{W}t"):
+                        t_el.tag = f"{W}delText"
+                    del_el = etree.Element(f"{W}del")
+                    del_el.set(f"{W}id", str(cid))
+                    del_el.set(f"{W}author", author)
+                    del_el.set(f"{W}date", now)
+                    del_el.append(run)
+                    para.append(del_el)
+
+                # Append w:ins with new text
+                ins_cid = self._next_markup_id(doc)
+                ins_el = etree.Element(f"{W}ins")
+                ins_el.set(f"{W}id", str(ins_cid))
+                ins_el.set(f"{W}author", author)
+                ins_el.set(f"{W}date", now)
+                new_run = etree.SubElement(ins_el, f"{W}r")
+                new_t = etree.SubElement(new_run, f"{W}t")
+                _preserve(new_t, text)
+                para.append(ins_el)
+            else:
+                # ── Silent: existing behavior ───────────────────────────
+                for run in list(para.findall(f"{W}r")):
+                    para.remove(run)
+                run = etree.SubElement(para, f"{W}r")
+                t_el = etree.SubElement(run, f"{W}t")
+                _preserve(t_el, text)
 
         if style is not None:
             ppr = para.find(f"{W}pPr")
