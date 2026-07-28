@@ -282,3 +282,41 @@ def test_get_body_text_real_fixtures(fixture_name, tmp_path):
     assert audit["footnotes"]["valid"], f"{fixture_name}: footnote audit failed"
     assert audit["paraids"]["valid"], f"{fixture_name}: paraId audit failed"
     assert not audit["relationships"]["missing_targets"], f"{fixture_name}: broken relationships"
+
+
+# ── Issue #6: replace_text paragraph scope (no document-global uniqueness gate) ─
+
+
+def test_replace_text_same_phrase_multiple_paras_with_para_id_succeeds(mike_corpus_docx, tmp_path):
+    """replace_text with explicit para_id succeeds even when find text appears elsewhere.
+
+    The mike_corpus fixture has "twelve months" in at least two paragraphs
+    (para 00000104 in section 1 and another para in section 2 — verified by
+    test_replace_with_context_disambiguates).  With the _doc_norm_count gate
+    removed, replace_text should locate the text within the targeted paragraph
+    and succeed without demanding context_before/context_after.
+    """
+    server.open_document(str(mike_corpus_docx))
+
+    # No context — the call must NOT raise ValueError
+    result = json.loads(
+        server.replace_text(
+            para_id="00000104",
+            find="twelve months",
+            replace="eighteen months",
+        )
+    )
+    assert result["del_id"] is not None, "replace_text must produce a deletion"
+
+    # Save and re-read to verify scoped replacement
+    out = tmp_path / "scope_fix.docx"
+    server.save_document(str(out))
+    server.open_document(str(out))
+    body = json.loads(server.get_body_text())["body"]
+
+    # The other paragraph must still contain the original phrase
+    assert "twelve months" in body, (
+        "other paragraph must be untouched — 'twelve months' should still appear"
+    )
+    # The target paragraph should reflect the replacement
+    assert "eighteen months" in body, "target paragraph must contain the replacement text"

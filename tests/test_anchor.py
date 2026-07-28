@@ -321,19 +321,23 @@ class TestCascadingContextAnchor:
         )
         assert result["type"] == "deletion"
 
-    def test_ambiguous_find_raises(self):
+    def test_find_in_multi_para_succeeds_with_explicit_para_id(self):
         """
-        When find text appears in multiple paragraphs and no context is
-        provided to distinguish them, raises ValueError.
+        Find text in a specific paragraph succeeds even when the same text
+        appears in other paragraphs — the caller already disambiguated by
+        providing an explicit para_id (issue #6).
         """
-        # "paragraph" appears in both 00000011 and 00000012
-        with pytest.raises(ValueError, match="[Aa]mbiguous"):
+        # "paragraph" appears in both 00000011 and 00000012,
+        # but appears only once within 00000011 — should succeed
+        result = _j(
             server.delete_text(
                 "00000011",
                 "paragraph",
                 context_before="",
                 context_after="",
             )
+        )
+        assert result["type"] == "deletion"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
