@@ -2311,6 +2311,8 @@ def update_paragraph(
     para_id: str,
     text: str = "",
     style: str = "",
+    tracked: bool = False,
+    author: str = "Claude",
 ) -> str:
     """Update the text and/or style of an existing paragraph.
 
@@ -2318,12 +2320,16 @@ def update_paragraph(
         para_id: paraId of the paragraph to update.
         text: New text content. Empty string leaves text unchanged.
         style: New paragraph style name. Empty string leaves style unchanged.
+        tracked: If True, wrap old runs in w:del and new text in w:ins.
+        author: Author name shown in Word's review pane (tracked=True only).
     """
     return _js(
         _require_doc().update_paragraph(
             para_id,
             text=text or None,
             style=style or None,
+            tracked=tracked,
+            author=author,
         )
     )
 

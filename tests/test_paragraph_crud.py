@@ -167,3 +167,25 @@ class TestParagraphCRUD:
         assert shd.get(f"{W}fill") == "FFFF00"
         assert shd.get(f"{W}val") == "clear"
         assert shd.get(f"{W}color") == "auto"
+
+    # ── update_paragraph tracked (issue #9) ──────────────────────────────
+
+    def test_update_paragraph_tracked_produces_del_and_ins(self, test_docx: Path) -> None:
+        """tracked=True wraps old text in w:del and new text in w:ins."""
+        self._open(test_docx)
+        server.update_paragraph(
+            "00000002", text="Tracked replacement", tracked=True, author="Tester"
+        )
+        changes = json.loads(server.get_tracked_changes())
+        assert len(changes) >= 2, f"expected ≥2 changes, got {len(changes)}"
+        assert any(c["type"] == "deletion" for c in changes), "no deletion found"
+        assert any(c["type"] == "insertion" for c in changes), "no insertion found"
+
+    def test_update_paragraph_tracked_false_unchanged(self, test_docx: Path) -> None:
+        """tracked=False (default) produces no tracked changes — silent replace."""
+        self._open(test_docx)
+        server.update_paragraph("00000002", text="Silent replacement")
+        changes = json.loads(server.get_tracked_changes())
+        assert len(changes) == 0, "no tracked changes expected for silent mode"
+        body = json.loads(server.get_body_text())["body"]
+        assert "Silent replacement" in body, "text should still be replaced"
