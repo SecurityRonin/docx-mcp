@@ -285,12 +285,6 @@ def _resolve(
                 f"Ambiguous: {find!r} found {len(m)} times in paragraph; "
                 "provide context_before or context_after"
             )
-        # Unique in this paragraph — verify document-global uniqueness
-        if _doc_norm_count(doc, norm_find, ignore_case=ignore_case) > 1:
-            raise ValueError(
-                f"Ambiguous: {find!r} appears in multiple paragraphs; "
-                "provide context_before or context_after"
-            )
         match = m[0]
 
     ns, ne = match
