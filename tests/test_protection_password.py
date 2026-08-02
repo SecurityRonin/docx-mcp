@@ -11,10 +11,10 @@ import base64
 from pathlib import Path
 
 import pytest
-from docx_mcp.document.passwordhash import ooxml_password_hash
 
 from docx_mcp.document import DocxDocument
 from docx_mcp.document.base import W
+from docx_mcp.document.passwordhash import ooxml_password_hash
 
 # Same Tier-1 vector as tests/test_password_hash.py — Word-authored artifact,
 # POI-authored answer key (apache/poi test-data/document/bug56076.docx).

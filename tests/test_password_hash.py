@@ -22,6 +22,7 @@ import base64
 import hashlib
 
 import pytest
+
 from docx_mcp.document.passwordhash import (
     CRYPT_PROVIDER_TYPES,
     SID_TO_ALGORITHM,

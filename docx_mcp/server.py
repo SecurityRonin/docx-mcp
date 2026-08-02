@@ -1074,11 +1074,25 @@ def add_cross_reference(
 def set_document_protection(
     edit: str,
     password: str = "",
+    algorithm: str = "SHA-512",
+    spin_count: int = 100000,
     document_handle: str = "",
 ) -> str:
-    """Set document protection. edit: trackedChanges/comments/readOnly/forms/none."""
+    """Set document protection. edit: trackedChanges/comments/readOnly/forms/none.
+
+    The password is hashed the way Word verifies it (MS-OE376 §2.15.1.28).
+    Note that algorithm truncates passwords to 15 characters. algorithm is one
+    of MD5/SHA-1/SHA-256/SHA-384/SHA-512.
+    """
     _, doc = _resolve(document_handle)
-    return _js(doc.set_document_protection(edit, password=password or None))
+    return _js(
+        doc.set_document_protection(
+            edit,
+            password=password or None,
+            algorithm=algorithm,
+            spin_count=spin_count,
+        )
+    )
 
 
 # ── Merge ──────────────────────────────────────────────────────────────────
