@@ -445,6 +445,90 @@ def set_table_style(table_idx: int, style_name: str) -> str:
     return _js(_require_doc().set_table_style(table_idx, style_name))
 
 
+# ── Table geometry ─────────────────────────────────────────────────────────
+#
+# table_idx counts tables in document order including nested ones, so a table
+# inside a cell has its own index. Call get_tables first if the document nests.
+
+
+@mcp.tool()
+def set_cell_padding(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    top_mm: float | None = None,
+    bottom_mm: float | None = None,
+    left_mm: float | None = None,
+    right_mm: float | None = None,
+    document_handle: str = "",
+) -> str:
+    """Set the inner margins of one table cell, in millimetres.
+
+    Sides left unset keep their current value rather than resetting to zero.
+    At least one side must be given.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_padding(
+            table_idx,
+            row_idx,
+            col_idx,
+            top_mm=top_mm,
+            bottom_mm=bottom_mm,
+            left_mm=left_mm,
+            right_mm=right_mm,
+        )
+    )
+
+
+@mcp.tool()
+def set_table_cell_margins(
+    table_idx: int,
+    top_mm: float | None = None,
+    bottom_mm: float | None = None,
+    left_mm: float | None = None,
+    right_mm: float | None = None,
+    document_handle: str = "",
+) -> str:
+    """Set default cell margins for a whole table, in millimetres.
+
+    Individual cells override these via set_cell_padding.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_table_cell_margins(
+            table_idx,
+            top_mm=top_mm,
+            bottom_mm=bottom_mm,
+            left_mm=left_mm,
+            right_mm=right_mm,
+        )
+    )
+
+
+@mcp.tool()
+def set_table_layout(table_idx: int, mode: str, document_handle: str = "") -> str:
+    """Set table layout: "fixed" honours declared widths, "autofit" sizes to content.
+
+    autofit also clears the explicit table and cell widths that would
+    otherwise pin the columns.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(doc.set_table_layout(table_idx, mode))
+
+
+@mcp.tool()
+def set_table_width(
+    table_idx: int,
+    width: float | None = None,
+    unit: str = "mm",
+    document_handle: str = "",
+) -> str:
+    """Set preferred table width. unit: "mm", "percent" (0-100), or "auto"."""
+    _, doc = _resolve(document_handle)
+    return _js(doc.set_table_width(table_idx, width, unit))
+
+
 # ── Lists ──────────────────────────────────────────────────────────────────
 
 

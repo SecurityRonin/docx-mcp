@@ -9,8 +9,62 @@ import io
 from lxml import etree
 
 from .base import W14, W, _now_iso, _preserve
+from .ooxml_order import (
+    TBLBORDERS_ORDER,
+    TBLPR_ORDER,
+    TCMAR_ORDER,
+    TCMAR_SIDES,
+    TCPR_ORDER,
+    TRPR_ORDER,
+    ordered_set_child,
+)
 
 _CM_TO_TWIPS = 567
+
+# One inch is 1440 twentieths of a point and 25.4 mm.
+_MM_TO_TWIPS = 1440 / 25.4
+
+# ST_TblWidth "pct" is expressed in fiftieths of a percent, so 100% is 5000.
+_PERCENT_TO_PCT = 50
+
+_TABLE_LAYOUT_MODES = ("fixed", "autofit")
+_TABLE_WIDTH_UNITS = ("mm", "percent", "auto")
+
+
+def _mm_to_twips(mm: float) -> int:
+    return round(mm * _MM_TO_TWIPS)
+
+
+def _validate_sides(sides: dict[str, float | None], what: str) -> None:
+    """Reject a call that would write nothing, or a negative measurement."""
+    if all(value is None for value in sides.values()):
+        raise ValueError(f"{what}: give at least one of {', '.join(sides)}")
+    for name, value in sides.items():
+        if value is not None and value < 0:
+            raise ValueError(f"{what}: {name} must be >= 0 mm, got {value}")
+
+
+def _row_properties(tr: etree._Element) -> etree._Element:
+    """Find or create w:trPr, which the schema requires as the first child."""
+    tr_pr = tr.find(f"{W}trPr")
+    if tr_pr is None:
+        tr_pr = etree.Element(f"{W}trPr")
+        tr.insert(0, tr_pr)
+    return tr_pr
+
+
+def _write_sides(container: etree._Element, sides: dict[str, float | None]) -> dict[str, float]:
+    """Write the given sides of a CT_TcMar-shaped element, in schema order."""
+    applied: dict[str, float] = {}
+    for name in TCMAR_SIDES:
+        value = sides.get(name)
+        if value is None:
+            continue
+        el = ordered_set_child(container, name, TCMAR_ORDER)
+        el.set(f"{W}w", str(_mm_to_twips(value)))
+        el.set(f"{W}type", "dxa")
+        applied[name] = value
+    return applied
 
 
 class TablesMixin:
@@ -39,12 +93,46 @@ class TablesMixin:
         return tables
 
     def _get_table(self, table_idx: int) -> etree._Element:
-        """Get table element by index, raising IndexError if not found."""
+        """Get table element by index, raising IndexError if not found.
+
+        Indexing is a pre-order walk, so a table nested inside a cell has its
+        own index. Callers formatting documents with nested tables should read
+        get_tables first rather than assuming top-level positions.
+        """
         doc = self._require("word/document.xml")
         tables = list(doc.iter(f"{W}tbl"))
         if table_idx < 0 or table_idx >= len(tables):
             raise IndexError(f"Table index {table_idx} out of range (have {len(tables)})")
         return tables[table_idx]
+
+    def _get_cell(self, table_idx: int, row_idx: int, col_idx: int) -> etree._Element:
+        """Resolve a cell by position, raising IndexError with the bounds."""
+        tbl = self._get_table(table_idx)
+        rows = tbl.findall(f"{W}tr")
+        if row_idx < 0 or row_idx >= len(rows):
+            raise IndexError(f"Row {row_idx} out of range (have {len(rows)})")
+        cells = rows[row_idx].findall(f"{W}tc")
+        if col_idx < 0 or col_idx >= len(cells):
+            raise IndexError(f"Column {col_idx} out of range (have {len(cells)})")
+        return cells[col_idx]
+
+    @staticmethod
+    def _cell_properties(tc: etree._Element) -> etree._Element:
+        """Find or create w:tcPr, which the schema requires as the first child."""
+        tc_pr = tc.find(f"{W}tcPr")
+        if tc_pr is None:
+            tc_pr = etree.Element(f"{W}tcPr")
+            tc.insert(0, tc_pr)
+        return tc_pr
+
+    @staticmethod
+    def _table_properties(tbl: etree._Element) -> etree._Element:
+        """Find or create w:tblPr, which the schema requires as the first child."""
+        tbl_pr = tbl.find(f"{W}tblPr")
+        if tbl_pr is None:
+            tbl_pr = etree.Element(f"{W}tblPr")
+            tbl.insert(0, tbl_pr)
+        return tbl_pr
 
     def add_table(
         self,
@@ -354,13 +442,9 @@ class TablesMixin:
             if merged_cols > 1:
                 # Set gridSpan on the first cell in the range
                 first_tc = cells[start_col]
-                tc_pr = first_tc.find(f"{W}tcPr")
-                if tc_pr is None:
-                    tc_pr = etree.Element(f"{W}tcPr")
-                    first_tc.insert(0, tc_pr)
-                grid_span = tc_pr.find(f"{W}gridSpan")
-                if grid_span is None:
-                    grid_span = etree.SubElement(tc_pr, f"{W}gridSpan")
+                grid_span = ordered_set_child(
+                    self._cell_properties(first_tc), "gridSpan", TCPR_ORDER
+                )
                 grid_span.set(f"{W}val", str(merged_cols))
 
                 # Remove intermediate cells
@@ -374,13 +458,7 @@ class TablesMixin:
             if merged_rows > 1:
                 # Apply vMerge to the start_col cell in this row
                 tc = row_el.findall(f"{W}tc")[start_col]
-                tc_pr = tc.find(f"{W}tcPr")
-                if tc_pr is None:
-                    tc_pr = etree.Element(f"{W}tcPr")
-                    tc.insert(0, tc_pr)
-                vmerge = tc_pr.find(f"{W}vMerge")
-                if vmerge is None:
-                    vmerge = etree.SubElement(tc_pr, f"{W}vMerge")
+                vmerge = ordered_set_child(self._cell_properties(tc), "vMerge", TCPR_ORDER)
                 if r == start_row:
                     vmerge.set(f"{W}val", "restart")
                 else:
@@ -407,13 +485,7 @@ class TablesMixin:
             raise ValueError("Table has no rows")
 
         first_row = rows_els[0]
-        tr_pr = first_row.find(f"{W}trPr")
-        if tr_pr is None:
-            tr_pr = etree.Element(f"{W}trPr")
-            first_row.insert(0, tr_pr)
-
-        if tr_pr.find(f"{W}tblHeader") is None:
-            etree.SubElement(tr_pr, f"{W}tblHeader")
+        ordered_set_child(_row_properties(first_row), "tblHeader", TRPR_ORDER)
 
         self._mark("word/document.xml")
         return {"table_index": table_index, "set": True}
@@ -610,14 +682,8 @@ class TablesMixin:
         if col_idx < 0 or col_idx >= len(cells):
             raise IndexError(f"Column {col_idx} out of range")
         tc = cells[col_idx]
-        tc_pr = tc.find(f"{W}tcPr")
-        if tc_pr is None:
-            tc_pr = etree.Element(f"{W}tcPr")
-            tc.insert(0, tc_pr)
-        tc_w = tc_pr.find(f"{W}tcW")
-        if tc_w is None:
-            tc_w = etree.SubElement(tc_pr, f"{W}tcW")
-        dxa = round(width_mm * 1440 / 25.4)
+        tc_w = ordered_set_child(self._cell_properties(tc), "tcW", TCPR_ORDER)
+        dxa = _mm_to_twips(width_mm)
         tc_w.set(f"{W}w", str(dxa))
         tc_w.set(f"{W}type", "dxa")
         self._mark("word/document.xml")
@@ -634,13 +700,7 @@ class TablesMixin:
         if col_idx < 0 or col_idx >= len(cells):
             raise IndexError(f"Column {col_idx} out of range")
         tc = cells[col_idx]
-        tc_pr = tc.find(f"{W}tcPr")
-        if tc_pr is None:
-            tc_pr = etree.Element(f"{W}tcPr")
-            tc.insert(0, tc_pr)
-        v_align = tc_pr.find(f"{W}vAlign")
-        if v_align is None:
-            v_align = etree.SubElement(tc_pr, f"{W}vAlign")
+        v_align = ordered_set_child(self._cell_properties(tc), "vAlign", TCPR_ORDER)
         v_align.set(f"{W}val", alignment)
         self._mark("word/document.xml")
         return {
@@ -658,28 +718,16 @@ class TablesMixin:
         if row_idx < 0 or row_idx >= len(rows):
             raise IndexError(f"Row {row_idx} out of range")
         tr = rows[row_idx]
-        tr_pr = tr.find(f"{W}trPr")
-        if tr_pr is None:
-            tr_pr = etree.Element(f"{W}trPr")
-            tr.insert(0, tr_pr)
-        tr_height = tr_pr.find(f"{W}trHeight")
-        if tr_height is None:
-            tr_height = etree.SubElement(tr_pr, f"{W}trHeight")
-        dxa = round(height_mm * 1440 / 25.4)
+        tr_height = ordered_set_child(_row_properties(tr), "trHeight", TRPR_ORDER)
+        dxa = _mm_to_twips(height_mm)
         tr_height.set(f"{W}val", str(dxa))
         tr_height.set(f"{W}hRule", rule)
         self._mark("word/document.xml")
         return {"table_idx": table_idx, "row_idx": row_idx, "height_dxa": dxa}
 
     def set_table_alignment(self, table_idx: int, alignment: str) -> dict:
-        tbl = self._get_table(table_idx)
-        tbl_pr = tbl.find(f"{W}tblPr")
-        if tbl_pr is None:
-            tbl_pr = etree.Element(f"{W}tblPr")
-            tbl.insert(0, tbl_pr)
-        jc = tbl_pr.find(f"{W}jc")
-        if jc is None:
-            jc = etree.SubElement(tbl_pr, f"{W}jc")
+        tbl_pr = self._table_properties(self._get_table(table_idx))
+        jc = ordered_set_child(tbl_pr, "jc", TBLPR_ORDER)
         jc.set(f"{W}val", alignment)
         self._mark("word/document.xml")
         return {"table_idx": table_idx, "alignment": alignment}
@@ -691,17 +739,12 @@ class TablesMixin:
         color: str = "000000",
         size: int = 4,
     ) -> dict:
-        tbl = self._get_table(table_idx)
-        tbl_pr = tbl.find(f"{W}tblPr")
-        if tbl_pr is None:
-            tbl_pr = etree.Element(f"{W}tblPr")
-            tbl.insert(0, tbl_pr)
-        existing = tbl_pr.find(f"{W}tblBorders")
-        if existing is not None:
-            tbl_pr.remove(existing)
-        borders = etree.SubElement(tbl_pr, f"{W}tblBorders")
-        for side in ("top", "bottom", "left", "right", "insideH", "insideV"):
-            el = etree.SubElement(borders, f"{W}{side}")
+        tbl_pr = self._table_properties(self._get_table(table_idx))
+        borders = ordered_set_child(tbl_pr, "tblBorders", TBLPR_ORDER)
+        for stale in list(borders):
+            borders.remove(stale)
+        for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            el = ordered_set_child(borders, side, TBLBORDERS_ORDER)
             el.set(f"{W}val", border_style)
             el.set(f"{W}sz", str(size))
             el.set(f"{W}space", "0")
@@ -725,13 +768,7 @@ class TablesMixin:
         if col_idx < 0 or col_idx >= len(cells):
             raise IndexError(f"Column {col_idx} out of range (have {len(cells)})")
         tc = cells[col_idx]
-        tc_pr = tc.find(f"{W}tcPr")
-        if tc_pr is None:
-            tc_pr = etree.Element(f"{W}tcPr")
-            tc.insert(0, tc_pr)
-        shd = tc_pr.find(f"{W}shd")
-        if shd is None:
-            shd = etree.SubElement(tc_pr, f"{W}shd")
+        shd = ordered_set_child(self._cell_properties(tc), "shd", TCPR_ORDER)
         shd.set(f"{W}val", pattern)
         shd.set(f"{W}color", "auto")
         shd.set(f"{W}fill", fill_color)
@@ -743,15 +780,142 @@ class TablesMixin:
             "fill_color": fill_color,
         }  # noqa: E501
 
-    def set_table_style(self, table_idx: int, style_name: str) -> dict:
+    # ── Geometry ─────────────────────────────────────────────────────────────
+
+    def set_cell_padding(
+        self,
+        table_idx: int,
+        row_idx: int,
+        col_idx: int,
+        *,
+        top_mm: float | None = None,
+        bottom_mm: float | None = None,
+        left_mm: float | None = None,
+        right_mm: float | None = None,
+    ) -> dict:
+        """Set the inner margins of one cell (w:tcMar).
+
+        Sides left as None keep whatever the cell already has; they are not
+        reset to zero. Measurements are millimetres, converted to the
+        twentieths of a point OOXML stores.
+        """
+        sides = {"top": top_mm, "bottom": bottom_mm, "left": left_mm, "right": right_mm}
+        _validate_sides(sides, "set_cell_padding")
+
+        tc = self._get_cell(table_idx, row_idx, col_idx)
+        tc_mar = ordered_set_child(self._cell_properties(tc), "tcMar", TCPR_ORDER)
+        applied = _write_sides(tc_mar, sides)
+
+        self._mark("word/document.xml")
+        return {
+            "table_idx": table_idx,
+            "row_idx": row_idx,
+            "col_idx": col_idx,
+            "padding_mm": applied,
+        }
+
+    def set_table_cell_margins(
+        self,
+        table_idx: int,
+        *,
+        top_mm: float | None = None,
+        bottom_mm: float | None = None,
+        left_mm: float | None = None,
+        right_mm: float | None = None,
+    ) -> dict:
+        """Set the table-wide default cell margins (w:tblCellMar).
+
+        Individual cells override these via set_cell_padding.
+        """
+        sides = {"top": top_mm, "bottom": bottom_mm, "left": left_mm, "right": right_mm}
+        _validate_sides(sides, "set_table_cell_margins")
+
+        tbl_pr = self._table_properties(self._get_table(table_idx))
+        cell_mar = ordered_set_child(tbl_pr, "tblCellMar", TBLPR_ORDER)
+        applied = _write_sides(cell_mar, sides)
+
+        self._mark("word/document.xml")
+        return {"table_idx": table_idx, "margins_mm": applied}
+
+    def set_table_layout(self, table_idx: int, mode: str) -> dict:
+        """Set the table layout algorithm (w:tblLayout).
+
+        "fixed" honours the declared column widths. "autofit" sizes columns to
+        their content, which also requires clearing the explicit widths that
+        would otherwise pin them — so this sets the table and every cell width
+        back to auto.
+        """
+        if mode not in _TABLE_LAYOUT_MODES:
+            raise ValueError(
+                f"Unknown table layout mode {mode!r}: expected one of "
+                f"{', '.join(_TABLE_LAYOUT_MODES)}"
+            )
+
         tbl = self._get_table(table_idx)
-        tbl_pr = tbl.find(f"{W}tblPr")
-        if tbl_pr is None:
-            tbl_pr = etree.Element(f"{W}tblPr")
-            tbl.insert(0, tbl_pr)
-        tbl_style = tbl_pr.find(f"{W}tblStyle")
-        if tbl_style is None:
-            tbl_style = etree.SubElement(tbl_pr, f"{W}tblStyle")
+        tbl_pr = self._table_properties(tbl)
+        ordered_set_child(tbl_pr, "tblLayout", TBLPR_ORDER).set(f"{W}type", mode)
+
+        if mode == "autofit":
+            tbl_w = ordered_set_child(tbl_pr, "tblW", TBLPR_ORDER)
+            tbl_w.set(f"{W}w", "0")
+            tbl_w.set(f"{W}type", "auto")
+            # Direct children only — a nested table keeps its own widths.
+            for tr in tbl.findall(f"{W}tr"):
+                for tc in tr.findall(f"{W}tc"):
+                    tc_pr = tc.find(f"{W}tcPr")
+                    tc_w = tc_pr.find(f"{W}tcW") if tc_pr is not None else None
+                    if tc_w is not None:
+                        tc_w.set(f"{W}w", "0")
+                        tc_w.set(f"{W}type", "auto")
+
+        self._mark("word/document.xml")
+        return {"table_idx": table_idx, "mode": mode}
+
+    def set_table_width(
+        self,
+        table_idx: int,
+        width: float | None = None,
+        unit: str = "mm",
+    ) -> dict:
+        """Set the preferred table width (w:tblW).
+
+        Args:
+            table_idx: Table index.
+            width: Millimetres, or a percentage of the text column for
+                unit="percent". Ignored (and may be None) for unit="auto".
+            unit: "mm", "percent", or "auto".
+        """
+        if unit not in _TABLE_WIDTH_UNITS:
+            raise ValueError(
+                f"Unknown table width unit {unit!r}: expected one of "
+                f"{', '.join(_TABLE_WIDTH_UNITS)}"
+            )
+
+        if unit == "auto":
+            value, width_type = "0", "auto"
+        else:
+            if width is None:
+                raise ValueError(f"width is required when unit is {unit!r}")
+            if width < 0:
+                raise ValueError(f"width must be >= 0, got {width}")
+            if unit == "percent":
+                if width > 100:
+                    raise ValueError(f"percent width must be between 0 and 100, got {width}")
+                value, width_type = str(round(width * _PERCENT_TO_PCT)), "pct"
+            else:
+                value, width_type = str(_mm_to_twips(width)), "dxa"
+
+        tbl_pr = self._table_properties(self._get_table(table_idx))
+        tbl_w = ordered_set_child(tbl_pr, "tblW", TBLPR_ORDER)
+        tbl_w.set(f"{W}w", value)
+        tbl_w.set(f"{W}type", width_type)
+
+        self._mark("word/document.xml")
+        return {"table_idx": table_idx, "width": width, "unit": unit}
+
+    def set_table_style(self, table_idx: int, style_name: str) -> dict:
+        tbl_pr = self._table_properties(self._get_table(table_idx))
+        tbl_style = ordered_set_child(tbl_pr, "tblStyle", TBLPR_ORDER)
         tbl_style.set(f"{W}val", style_name)
         self._mark("word/document.xml")
         return {"table_idx": table_idx, "style_name": style_name}

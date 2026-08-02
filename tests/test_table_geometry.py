@@ -10,7 +10,12 @@ from __future__ import annotations
 import pytest
 
 from docx_mcp.document import W14, DocxDocument, W
-from docx_mcp.document.ooxml_order import TBLPR_ORDER, TCMAR_ORDER, TCPR_ORDER, find_out_of_order
+from docx_mcp.document.ooxml_order import TBLPR_ORDER, TCPR_ORDER, find_out_of_order
+
+# The four sides Word writes. TCMAR_ORDER also carries the ISO start/end
+# spellings, which these tools never emit, so assert against the sides
+# themselves rather than the full schema sequence.
+SIDES = ["top", "left", "bottom", "right"]
 
 # 2.54 mm is exactly 144 twentieths of a point, so the conversion is testable
 # without rounding noise.
@@ -53,7 +58,7 @@ class TestSetCellPadding:
         doc = _doc_with_table(tmp_path)
         doc.set_cell_padding(0, 0, 0, top_mm=MM, bottom_mm=MM, left_mm=MM, right_mm=MM)
         mar = _tcpr(doc, 0, 0).find(f"{W}tcMar")
-        assert _names(mar) == list(TCMAR_ORDER)
+        assert _names(mar) == SIDES
 
     def test_converts_mm_to_dxa(self, tmp_path):
         doc = _doc_with_table(tmp_path)
@@ -81,7 +86,7 @@ class TestSetCellPadding:
         doc.set_cell_padding(0, 0, 0, top_mm=MM)
         doc.set_cell_padding(0, 0, 0, bottom_mm=MM)
         doc.set_cell_padding(0, 0, 0, left_mm=MM)
-        assert _names(_tcpr(doc, 0, 0).find(f"{W}tcMar")) == list(TCMAR_ORDER)
+        assert _names(_tcpr(doc, 0, 0).find(f"{W}tcMar")) == SIDES
 
     def test_returns_the_padding_it_applied(self, tmp_path):
         doc = _doc_with_table(tmp_path)
@@ -137,7 +142,7 @@ class TestSetTableCellMargins:
         doc = _doc_with_table(tmp_path)
         doc.set_table_cell_margins(0, top_mm=MM, bottom_mm=MM, left_mm=MM, right_mm=MM)
         mar = _tblpr(doc).find(f"{W}tblCellMar")
-        assert _names(mar) == list(TCMAR_ORDER)
+        assert _names(mar) == SIDES
 
     def test_converts_mm_to_dxa(self, tmp_path):
         doc = _doc_with_table(tmp_path)

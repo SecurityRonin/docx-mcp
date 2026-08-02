@@ -10,10 +10,12 @@ Every property writer goes through `ordered_set_child`, which finds or
 creates a child at its schema position, so the resulting order is canonical
 regardless of the order the tools were called in.
 
-Order tables are the effective element sequence of the transitional
-ECMA-376 Part 1 schema (§17.4 Tables). The package models only the
-transitional namespace, so the strict-schema spellings (`start`/`end` in
-place of `left`/`right`) are not represented here.
+Order tables are the effective element sequences read from the official
+ECMA-376 5th edition (December 2016) **transitional** `wml.xsd`, with
+extension chains resolved base-first. The transitional schema accepts both
+the ISO `start`/`end` spellings and the legacy `left`/`right` ones, in an
+interleaved sequence — Word writes only `left`/`right`, but a document from
+another producer may carry `start`/`end`, so both are represented.
 """
 
 from __future__ import annotations
@@ -85,14 +87,21 @@ TRPR_ORDER: tuple[str, ...] = (
     "trPrChange",
 )
 
-# CT_TcMar / CT_TblCellMar, transitional spelling.
-TCMAR_ORDER: tuple[str, ...] = ("top", "left", "bottom", "right")
+# CT_TcMar and CT_TblCellMar are distinct complexTypes with an identical
+# content model. `start`/`end` are the ISO spellings; Word emits `left`/`right`.
+TCMAR_ORDER: tuple[str, ...] = ("top", "start", "left", "bottom", "end", "right")
 
-# CT_TcBorders, transitional spelling.
+# The four sides Word actually writes, in their schema-relative order. Callers
+# that take mm arguments iterate this rather than TCMAR_ORDER.
+TCMAR_SIDES: tuple[str, ...] = ("top", "left", "bottom", "right")
+
+# CT_TcBorders — same start/left, end/right interleave as CT_TcMar.
 TCBORDERS_ORDER: tuple[str, ...] = (
     "top",
+    "start",
     "left",
     "bottom",
+    "end",
     "right",
     "insideH",
     "insideV",
@@ -100,12 +109,32 @@ TCBORDERS_ORDER: tuple[str, ...] = (
     "tr2bl",
 )
 
+# CT_TblBorders adds the outer-edge pair and drops the diagonals.
+TBLBORDERS_ORDER: tuple[str, ...] = (
+    "top",
+    "start",
+    "left",
+    "bottom",
+    "end",
+    "right",
+    "insideH",
+    "insideV",
+)
 
-def _local(el: etree._Element) -> str | None:
-    """Local name of an element, or None for comments and processing instructions."""
-    if not isinstance(el.tag, str):
+
+def _local(el: etree._Element, ns: str) -> str | None:
+    """Local name of an element, but only if it is in `ns`.
+
+    Namespace-blind matching would be a real bug here: Word appends
+    extension-namespace children (w14:docId, w15:chartTrackingRefBased, …)
+    after the wml sequence, and any of those sharing a local name with an
+    ordered element would otherwise be mistaken for a positional anchor.
+    Comments and processing instructions are excluded too.
+    """
+    tag = el.tag
+    if not isinstance(tag, str) or not tag.startswith(ns):
         return None
-    return etree.QName(el).localname
+    return tag[len(ns) :]
 
 
 def ordered_set_child(
@@ -140,15 +169,20 @@ def ordered_set_child(
     position = order.index(localname)
     child = etree.Element(tag)
     for index, sibling in enumerate(parent):
-        name = _local(sibling)
-        if name in order and order.index(name) > position:
+        name = _local(sibling, ns)
+        if name is not None and name in order and order.index(name) > position:
             parent.insert(index, child)
             return child
     parent.append(child)
     return child
 
 
-def find_out_of_order(parent: etree._Element, order: tuple[str, ...]) -> list[str]:
+def find_out_of_order(
+    parent: etree._Element,
+    order: tuple[str, ...],
+    *,
+    ns: str = W,
+) -> list[str]:
     """Names of children that appear before a sibling they should follow.
 
     Reports the *later* member of each violating pair, i.e. the child that is
@@ -158,7 +192,7 @@ def find_out_of_order(parent: etree._Element, order: tuple[str, ...]) -> list[st
     misplaced: list[str] = []
     highest = -1
     for child in parent:
-        name = _local(child)
+        name = _local(child, ns)
         if name is None or name not in order:
             continue
         position = order.index(name)
