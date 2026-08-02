@@ -529,6 +529,121 @@ def set_table_width(
     return _js(doc.set_table_width(table_idx, width, unit))
 
 
+@mcp.tool()
+def set_table_banding(
+    table_idx: int,
+    odd_color: str = "F2F2F2",
+    even_color: str = "FFFFFF",
+    skip_header: bool = True,
+    document_handle: str = "",
+) -> str:
+    """Shade alternating rows of a table.
+
+    skip_header leaves row 0 alone so style_header_row can own it.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_table_banding(
+            table_idx, odd_color=odd_color, even_color=even_color, skip_header=skip_header
+        )
+    )
+
+
+@mcp.tool()
+def style_header_row(
+    table_idx: int,
+    fill_color: str = "4472C4",
+    text_color: str = "FFFFFF",
+    bold: bool = True,
+    document_handle: str = "",
+) -> str:
+    """Shade and format the first row, and make it repeat across page breaks."""
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.style_header_row(table_idx, fill_color=fill_color, text_color=text_color, bold=bold)
+    )
+
+
+# ── Cell decoration ────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def set_cell_borders(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    sides: list[str] | None = None,
+    style: str = "single",
+    color: str = "000000",
+    size: int = 4,
+    document_handle: str = "",
+) -> str:
+    """Set borders on a single cell.
+
+    sides defaults to the four outer edges; also accepts insideH, insideV,
+    tl2br, tr2bl. Successive calls compose, so setting one side leaves the
+    others as they were. size is in eighths of a point.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_borders(
+            table_idx, row_idx, col_idx, sides=sides, style=style, color=color, size=size
+        )
+    )
+
+
+@mcp.tool()
+def set_cell_alignment(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    horizontal: str | None = None,
+    vertical: str | None = None,
+    document_handle: str = "",
+) -> str:
+    """Align cell content. horizontal: left/center/right/both. vertical: top/center/bottom."""
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_alignment(
+            table_idx, row_idx, col_idx, horizontal=horizontal, vertical=vertical
+        )
+    )
+
+
+@mcp.tool()
+def format_cell(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    underline: bool | None = None,
+    color: str | None = None,
+    font_size_pt: float | None = None,
+    font_name: str | None = None,
+    document_handle: str = "",
+) -> str:
+    """Format every run of text in a cell.
+
+    Properties left unset are untouched; passing false turns one off
+    explicitly rather than inheriting it from the style.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.format_cell(
+            table_idx,
+            row_idx,
+            col_idx,
+            bold=bold,
+            italic=italic,
+            underline=underline,
+            color=color,
+            font_size_pt=font_size_pt,
+            font_name=font_name,
+        )
+    )
+
+
 # ── Lists ──────────────────────────────────────────────────────────────────
 
 

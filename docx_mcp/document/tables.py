@@ -9,9 +9,11 @@ import io
 from lxml import etree
 
 from .base import W14, W, _now_iso, _preserve
+from .guards import InputGuard
 from .ooxml_order import (
     TBLBORDERS_ORDER,
     TBLPR_ORDER,
+    TCBORDERS_ORDER,
     TCMAR_ORDER,
     TCMAR_SIDES,
     TCPR_ORDER,
@@ -30,6 +32,13 @@ _PERCENT_TO_PCT = 50
 _TABLE_LAYOUT_MODES = ("fixed", "autofit")
 _TABLE_WIDTH_UNITS = ("mm", "percent", "auto")
 
+# The four edges set_cell_borders writes when no sides are named.
+_OUTER_BORDER_SIDES = ("top", "left", "bottom", "right")
+
+# ST_VerticalJc and the subset of ST_Jc that is meaningful in a table cell.
+_VERTICAL_ALIGNMENTS = ("top", "center", "both", "bottom")
+_HORIZONTAL_ALIGNMENTS = ("left", "center", "right", "both", "start", "end", "distribute")
+
 
 def _mm_to_twips(mm: float) -> int:
     return round(mm * _MM_TO_TWIPS)
@@ -42,6 +51,48 @@ def _validate_sides(sides: dict[str, float | None], what: str) -> None:
     for name, value in sides.items():
         if value is not None and value < 0:
             raise ValueError(f"{what}: {name} must be >= 0 mm, got {value}")
+
+
+def _paragraph_properties(para: etree._Element) -> etree._Element:
+    """Find or create w:pPr, which the schema requires as the paragraph's first child.
+
+    Children are appended rather than schema-ordered: CT_PPr ordering has not
+    been verified here, and the dozen existing pPr writers in this package
+    append too, so imposing an order on this one path alone would buy nothing.
+    """
+    ppr = para.find(f"{W}pPr")
+    if ppr is None:
+        ppr = etree.Element(f"{W}pPr")
+        para.insert(0, ppr)
+    return ppr
+
+
+def _cell_runs(tc: etree._Element):
+    """Runs belonging to this cell's own paragraphs.
+
+    Descends into w:ins because a tracked insertion still renders, but not
+    into a nested table — its cells carry their own index and are addressed
+    separately.
+    """
+    for para in tc.findall(f"{W}p"):
+        yield from para.findall(f"{W}r")
+        for ins in para.findall(f"{W}ins"):
+            yield from ins.findall(f"{W}r")
+
+
+def _set_toggle(rpr: etree._Element, name: str, on: bool) -> None:
+    """Set an on/off run property.
+
+    Omitting the element is not the same as turning the property off — an
+    absent w:b inherits from the style. Off is written explicitly as val="0".
+    """
+    el = rpr.find(f"{W}{name}")
+    if el is None:
+        el = etree.SubElement(rpr, f"{W}{name}")
+    if on:
+        el.attrib.pop(f"{W}val", None)
+    else:
+        el.set(f"{W}val", "0")
 
 
 def _row_properties(tr: etree._Element) -> etree._Element:
@@ -912,6 +963,262 @@ class TablesMixin:
 
         self._mark("word/document.xml")
         return {"table_idx": table_idx, "width": width, "unit": unit}
+
+    # ── Composite styling ────────────────────────────────────────────────────
+
+    def set_table_banding(
+        self,
+        table_idx: int,
+        odd_color: str = "F2F2F2",
+        even_color: str = "FFFFFF",
+        skip_header: bool = True,
+    ) -> dict:
+        """Shade alternating rows.
+
+        Shading is written directly onto each cell rather than delegated to
+        the table style's banding, which only renders if the applied style
+        happens to define bands.
+
+        Args:
+            odd_color: Fill for the first banded row, and every second one after.
+            even_color: Fill for the rows in between.
+            skip_header: Leave row 0 unshaded, so style_header_row owns it.
+        """
+        odd_color = InputGuard.color_hex(odd_color)
+        even_color = InputGuard.color_hex(even_color)
+
+        rows = self._get_table(table_idx).findall(f"{W}tr")
+        banded = rows[1:] if skip_header else rows
+
+        for position, tr in enumerate(banded):
+            fill = odd_color if position % 2 == 0 else even_color
+            for tc in tr.findall(f"{W}tc"):
+                shd = ordered_set_child(self._cell_properties(tc), "shd", TCPR_ORDER)
+                shd.set(f"{W}val", "clear")
+                shd.set(f"{W}color", "auto")
+                shd.set(f"{W}fill", fill)
+
+        self._mark("word/document.xml")
+        return {"table_idx": table_idx, "rows_shaded": len(banded)}
+
+    def style_header_row(
+        self,
+        table_idx: int,
+        fill_color: str = "4472C4",
+        text_color: str = "FFFFFF",
+        bold: bool = True,
+    ) -> dict:
+        """Shade, format and pin the first row as a repeating header.
+
+        Also sets w:tblHeader, so the row repeats when the table breaks across
+        pages — a styled header that disappears on page two is the usual
+        complaint about doing this by hand.
+        """
+        fill_color = InputGuard.color_hex(fill_color)
+        text_color = InputGuard.color_hex(text_color)
+
+        rows = self._get_table(table_idx).findall(f"{W}tr")
+        if not rows:
+            raise ValueError(f"Table {table_idx} has no rows to style")
+
+        header = rows[0]
+        cells = header.findall(f"{W}tc")
+        for col_idx, tc in enumerate(cells):
+            shd = ordered_set_child(self._cell_properties(tc), "shd", TCPR_ORDER)
+            shd.set(f"{W}val", "clear")
+            shd.set(f"{W}color", "auto")
+            shd.set(f"{W}fill", fill_color)
+            self.format_cell(table_idx, 0, col_idx, bold=bold, color=text_color)
+
+        ordered_set_child(_row_properties(header), "tblHeader", TRPR_ORDER)
+
+        self._mark("word/document.xml")
+        return {"table_idx": table_idx, "cells_styled": len(cells)}
+
+    # ── Cell decoration ──────────────────────────────────────────────────────
+
+    def set_cell_borders(
+        self,
+        table_idx: int,
+        row_idx: int,
+        col_idx: int,
+        sides: list[str] | None = None,
+        style: str = "single",
+        color: str = "000000",
+        size: int = 4,
+    ) -> dict:
+        """Set borders on one cell (w:tcBorders).
+
+        Successive calls compose: setting the left border leaves a top border
+        set earlier in place. Sides not named keep whatever they had.
+
+        Args:
+            sides: Any of top, left, bottom, right, insideH, insideV, tl2br,
+                tr2bl (and the ISO start/end spellings). Defaults to the four
+                outer edges.
+            style: ST_Border value, e.g. single, double, dashed, none.
+            color: Six-digit hex, or "auto".
+            size: Border width in eighths of a point.
+        """
+        chosen = _OUTER_BORDER_SIDES if sides is None else tuple(sides)
+        if not chosen:
+            raise ValueError(
+                "set_cell_borders: name at least one side, or omit sides for the four edges"
+            )
+        unknown = [s for s in chosen if s not in TCBORDERS_ORDER]
+        if unknown:
+            raise ValueError(
+                f"Unknown cell border side(s) {', '.join(repr(u) for u in unknown)}: "
+                f"expected one of {', '.join(TCBORDERS_ORDER)}"
+            )
+        color = InputGuard.color_hex(color)
+
+        tc = self._get_cell(table_idx, row_idx, col_idx)
+        borders = ordered_set_child(self._cell_properties(tc), "tcBorders", TCPR_ORDER)
+
+        written = []
+        for side in TCBORDERS_ORDER:
+            if side not in chosen:
+                continue
+            el = ordered_set_child(borders, side, TCBORDERS_ORDER)
+            el.set(f"{W}val", style)
+            el.set(f"{W}sz", str(size))
+            el.set(f"{W}space", "0")
+            el.set(f"{W}color", color)
+            written.append(side)
+
+        self._mark("word/document.xml")
+        return {
+            "table_idx": table_idx,
+            "row_idx": row_idx,
+            "col_idx": col_idx,
+            "sides": written,
+        }
+
+    def set_cell_alignment(
+        self,
+        table_idx: int,
+        row_idx: int,
+        col_idx: int,
+        horizontal: str | None = None,
+        vertical: str | None = None,
+    ) -> dict:
+        """Align cell content on either or both axes.
+
+        The two axes live in different places: vertical is w:vAlign on the
+        cell, horizontal is w:jc on each of the cell's paragraphs. Passing
+        only one leaves the other untouched.
+        """
+        if horizontal is None and vertical is None:
+            raise ValueError("set_cell_alignment: give horizontal, vertical, or both")
+        if vertical is not None and vertical not in _VERTICAL_ALIGNMENTS:
+            raise ValueError(
+                f"Unknown vertical alignment {vertical!r}: expected one of "
+                f"{', '.join(_VERTICAL_ALIGNMENTS)}"
+            )
+        if horizontal is not None and horizontal not in _HORIZONTAL_ALIGNMENTS:
+            raise ValueError(
+                f"Unknown horizontal alignment {horizontal!r}: expected one of "
+                f"{', '.join(_HORIZONTAL_ALIGNMENTS)}"
+            )
+
+        tc = self._get_cell(table_idx, row_idx, col_idx)
+
+        if vertical is not None:
+            v_align = ordered_set_child(self._cell_properties(tc), "vAlign", TCPR_ORDER)
+            v_align.set(f"{W}val", vertical)
+
+        if horizontal is not None:
+            for para in tc.findall(f"{W}p"):
+                ppr = _paragraph_properties(para)
+                jc = ppr.find(f"{W}jc")
+                if jc is None:
+                    jc = etree.SubElement(ppr, f"{W}jc")
+                jc.set(f"{W}val", horizontal)
+
+        self._mark("word/document.xml")
+        return {
+            "table_idx": table_idx,
+            "row_idx": row_idx,
+            "col_idx": col_idx,
+            "horizontal": horizontal,
+            "vertical": vertical,
+        }
+
+    def format_cell(
+        self,
+        table_idx: int,
+        row_idx: int,
+        col_idx: int,
+        *,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        underline: bool | None = None,
+        color: str | None = None,
+        font_size_pt: float | None = None,
+        font_name: str | None = None,
+    ) -> dict:
+        """Apply run formatting to every run in a cell.
+
+        Properties left as None are untouched; False turns a toggle off
+        explicitly rather than deleting it, so it overrides the style rather
+        than inheriting from it.
+        """
+        given = {
+            "bold": bold,
+            "italic": italic,
+            "underline": underline,
+            "color": color,
+            "font_size_pt": font_size_pt,
+            "font_name": font_name,
+        }
+        if all(value is None for value in given.values()):
+            raise ValueError(f"format_cell: give at least one of {', '.join(given)}")
+        if color is not None:
+            color = InputGuard.color_hex(color)
+
+        tc = self._get_cell(table_idx, row_idx, col_idx)
+
+        formatted = 0
+        for run in _cell_runs(tc):
+            rpr = self._upsert_rpr(run)
+            if bold is not None:
+                _set_toggle(rpr, "b", bold)
+            if italic is not None:
+                _set_toggle(rpr, "i", italic)
+            if underline is not None:
+                u = rpr.find(f"{W}u")
+                if u is None:
+                    u = etree.SubElement(rpr, f"{W}u")
+                u.set(f"{W}val", "single" if underline else "none")
+            if color is not None:
+                el = rpr.find(f"{W}color")
+                if el is None:
+                    el = etree.SubElement(rpr, f"{W}color")
+                el.set(f"{W}val", color)
+            if font_size_pt is not None:
+                # w:sz is measured in half-points.
+                half_points = str(round(font_size_pt * 2))
+                for tag in ("sz", "szCs"):
+                    el = rpr.find(f"{W}{tag}")
+                    if el is None:
+                        el = etree.SubElement(rpr, f"{W}{tag}")
+                    el.set(f"{W}val", half_points)
+            if font_name is not None:
+                fonts = rpr.find(f"{W}rFonts")
+                if fonts is None:
+                    fonts = etree.SubElement(rpr, f"{W}rFonts")
+                fonts.set(f"{W}ascii", font_name)
+                fonts.set(f"{W}hAnsi", font_name)
+            formatted += 1
+
+        self._mark("word/document.xml")
+        return {
+            "table_idx": table_idx,
+            "row_idx": row_idx,
+            "col_idx": col_idx,
+            "runs_formatted": formatted,
+        }
 
     def set_table_style(self, table_idx: int, style_name: str) -> dict:
         tbl_pr = self._table_properties(self._get_table(table_idx))
