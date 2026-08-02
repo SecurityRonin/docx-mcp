@@ -21,11 +21,18 @@ class InputGuard:
         return value
 
     @staticmethod
-    def output_path(value: str) -> Path:
-        """Validate output path: must end in .docx, no path traversal."""
+    def output_path(value: str, *, suffix: str = ".docx") -> Path:
+        """Validate an output path: expected suffix, no path traversal.
+
+        Args:
+            value: Caller-supplied destination path.
+            suffix: Required file extension. Defaults to .docx so existing
+                call sites keep their contract; export tools pass their own
+                (e.g. ".pdf") rather than writing unguarded.
+        """
         p = Path(value)
-        if p.suffix.lower() != ".docx":
-            raise ValueError(f"Invalid output path {value!r}: suffix must be .docx")
+        if p.suffix.lower() != suffix.lower():
+            raise ValueError(f"Invalid output path {value!r}: suffix must be {suffix}")
         # Resolve and check for traversal sequences
         try:
             resolved = p.resolve()

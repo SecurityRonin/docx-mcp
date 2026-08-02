@@ -64,6 +64,56 @@ def _preserve(t_el: etree._Element, text: str) -> None:
     t_el.set(XML_SPACE, "preserve")
 
 
+# ── Table grid geometry ─────────────────────────────────────────────────────
+
+# Magic bytes of an OLE2/CFB compound file. MS-OFFCRYPTO wraps an encrypted
+# OPC package in one of these, so a password-protected .docx is not a ZIP.
+OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+
+def _w_val_int(el: etree._Element | None, default: int) -> int:
+    """Read a w:val attribute as an int, falling back to the schema default.
+
+    An out-of-range or non-numeric w:val is ignored rather than fatal, which
+    is how Word itself resolves one — see ECMA-376 Part 1 §17.4 on the
+    ST_DecimalNumber attributes below.
+    """
+    if el is None:
+        return default
+    raw = el.get(f"{W}val")
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def row_grid_width(tr: etree._Element) -> int:
+    """Width of a table row measured in grid columns, not in <w:tc> elements.
+
+    A row spans `gridBefore + Σ gridSpan + gridAfter` columns of w:tblGrid
+    (ECMA-376 Part 1 §17.4 — w:gridSpan, w:gridBefore, w:gridAfter). Counting
+    cells instead reports a horizontally merged row as narrower than it is,
+    and a ragged-edge row as narrower still.
+    """
+    width = 0
+    tr_pr = tr.find(f"{W}trPr")
+    if tr_pr is not None:
+        width += _w_val_int(tr_pr.find(f"{W}gridBefore"), 0)
+        width += _w_val_int(tr_pr.find(f"{W}gridAfter"), 0)
+    for tc in tr.findall(f"{W}tc"):
+        tc_pr = tc.find(f"{W}tcPr")
+        span = tc_pr.find(f"{W}gridSpan") if tc_pr is not None else None
+        width += _w_val_int(span, 1)
+    return width
+
+
+def table_row_widths(tbl: etree._Element) -> list[int]:
+    """Grid width of every row in a table, in document order."""
+    return [row_grid_width(tr) for tr in tbl.findall(f"{W}tr")]
+
+
 class BaseMixin:
     """Lifecycle, XML cache, and shared helpers."""
 
@@ -85,6 +135,19 @@ class BaseMixin:
             raise FileNotFoundError(f"File not found: {self.source_path}")
         if self.source_path.suffix.lower() != ".docx":
             raise ValueError(f"Not a .docx file: {self.source_path}")
+
+        # An encrypted .docx is an OLE2/CFB envelope, not a ZIP. Detect it here
+        # so the diagnostic names the real condition instead of "bad ZIP".
+        with self.source_path.open("rb") as fh:
+            magic = fh.read(len(OLE2_MAGIC))
+        if magic == OLE2_MAGIC:
+            raise DocxMcpError(
+                ErrCode.ENCRYPTED_DOCUMENT,
+                f"{self.source_path.name} is an OLE2/CFB compound file "
+                f"(leading bytes {magic.hex()}), not a ZIP-based .docx. This is "
+                "how MS-OFFCRYPTO stores a password-encrypted document.",
+                hint="Decrypt the file before opening it (e.g. with msoffcrypto-tool).",
+            )
 
         self.workdir = Path(tempfile.mkdtemp(prefix="docx_mcp_"))
         try:
@@ -378,11 +441,11 @@ class BaseMixin:
         if unpaired:
             warnings.append(f"{unpaired} unpaired bookmark(s)")
 
-        # Inconsistent table columns
+        # Inconsistent table columns (measured in grid columns — see row_grid_width)
         for idx, tbl in enumerate(doc.iter(f"{W}tbl")):
-            counts = [len(tr.findall(f"{W}tc")) for tr in tbl.findall(f"{W}tr")]
-            if counts and len(set(counts)) > 1:
-                warnings.append(f"Table {idx + 1} has inconsistent column counts: {counts}")
+            widths = table_row_widths(tbl)
+            if widths and len(set(widths)) > 1:
+                warnings.append(f"Table {idx + 1} has inconsistent column counts: {widths}")
 
         # Artifact markers (DRAFT, TODO, FIXME, XXX)
         for marker in ("DRAFT", "TODO", "FIXME", "XXX"):

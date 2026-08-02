@@ -207,6 +207,9 @@ class TestConvertToPdfLeavesSourceAlone:
     def test_no_backup_file_created_next_to_source(self, tmp_path: Path):
         doc = _make_doc(tmp_path, "src.docx")
         doc.save()
+        # save() itself backs up the file create() wrote, so snapshot first —
+        # what matters is that convert_to_pdf adds nothing.
+        before = sorted(tmp_path.glob("*.bak*"))
 
         with (
             patch("shutil.which", return_value="/usr/bin/soffice"),
@@ -214,7 +217,7 @@ class TestConvertToPdfLeavesSourceAlone:
         ):
             doc.convert_to_pdf(str(tmp_path / "out.pdf"))
 
-        assert list(tmp_path.glob("*.bak*")) == []
+        assert sorted(tmp_path.glob("*.bak*")) == before
 
     def test_pending_edits_are_included_in_the_pdf_input(self, tmp_path: Path):
         """The converted copy must reflect unsaved in-memory edits."""
