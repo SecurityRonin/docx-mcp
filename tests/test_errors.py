@@ -27,9 +27,11 @@ class TestErrCode:
         assert ErrCode.PII_DEPS_MISSING.value == "PII_DEPS_MISSING"
         assert ErrCode.NO_OPEN_DOCUMENT.value == "NO_OPEN_DOCUMENT"
         assert ErrCode.XPATH_ERROR.value == "XPATH_ERROR"
+        assert ErrCode.ENCRYPTED_DOCUMENT.value == "ENCRYPTED_DOCUMENT"
 
-    def test_thirteen_members(self):
-        assert len(ErrCode) == 13
+    def test_member_count(self):
+        """The taxonomy is a published contract — growing it is a deliberate act."""
+        assert len(ErrCode) == 14
 
 
 class TestDocxMcpError:

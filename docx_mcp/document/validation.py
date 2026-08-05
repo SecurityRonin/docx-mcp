@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import RELS, W14, A, R, V, W
+from .base import RELS, W14, A, R, V, W, table_row_widths
 
 
 class ValidationMixin:
@@ -120,15 +120,16 @@ class ValidationMixin:
         # Endnotes
         results["endnotes"] = self.validate_endnotes()
 
-        # Tables — check consistent column counts per table
+        # Tables — check consistent column counts per table. Widths are measured
+        # in grid columns (gridBefore + Σ gridSpan + gridAfter), the same way
+        # base._post_repair_warnings measures them, so the MCP audit tool and the
+        # save-time warning cannot disagree.
         table_issues = []
         if doc is not None:
             for idx, tbl in enumerate(doc.iter(f"{W}tbl")):
-                row_col_counts = []
-                for tr in tbl.findall(f"{W}tr"):
-                    row_col_counts.append(len(tr.findall(f"{W}tc")))
-                if row_col_counts and len(set(row_col_counts)) > 1:
-                    table_issues.append({"table_index": idx, "column_counts": row_col_counts})
+                widths = table_row_widths(tbl)
+                if widths and len(set(widths)) > 1:
+                    table_issues.append({"table_index": idx, "column_counts": widths})
         results["tables"] = {"inconsistent_columns": table_issues}
 
         # Protection status

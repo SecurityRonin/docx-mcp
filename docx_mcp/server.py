@@ -445,6 +445,205 @@ def set_table_style(table_idx: int, style_name: str) -> str:
     return _js(_require_doc().set_table_style(table_idx, style_name))
 
 
+# ── Table geometry ─────────────────────────────────────────────────────────
+#
+# table_idx counts tables in document order including nested ones, so a table
+# inside a cell has its own index. Call get_tables first if the document nests.
+
+
+@mcp.tool()
+def set_cell_padding(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    top_mm: float | None = None,
+    bottom_mm: float | None = None,
+    left_mm: float | None = None,
+    right_mm: float | None = None,
+    document_handle: str = "",
+) -> str:
+    """Set the inner margins of one table cell, in millimetres.
+
+    Sides left unset keep their current value rather than resetting to zero.
+    At least one side must be given.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_padding(
+            table_idx,
+            row_idx,
+            col_idx,
+            top_mm=top_mm,
+            bottom_mm=bottom_mm,
+            left_mm=left_mm,
+            right_mm=right_mm,
+        )
+    )
+
+
+@mcp.tool()
+def set_table_cell_margins(
+    table_idx: int,
+    top_mm: float | None = None,
+    bottom_mm: float | None = None,
+    left_mm: float | None = None,
+    right_mm: float | None = None,
+    document_handle: str = "",
+) -> str:
+    """Set default cell margins for a whole table, in millimetres.
+
+    Individual cells override these via set_cell_padding.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_table_cell_margins(
+            table_idx,
+            top_mm=top_mm,
+            bottom_mm=bottom_mm,
+            left_mm=left_mm,
+            right_mm=right_mm,
+        )
+    )
+
+
+@mcp.tool()
+def set_table_layout(table_idx: int, mode: str, document_handle: str = "") -> str:
+    """Set table layout: "fixed" honours declared widths, "autofit" sizes to content.
+
+    autofit also clears the explicit table and cell widths that would
+    otherwise pin the columns.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(doc.set_table_layout(table_idx, mode))
+
+
+@mcp.tool()
+def set_table_width(
+    table_idx: int,
+    width: float | None = None,
+    unit: str = "mm",
+    document_handle: str = "",
+) -> str:
+    """Set preferred table width. unit: "mm", "percent" (0-100), or "auto"."""
+    _, doc = _resolve(document_handle)
+    return _js(doc.set_table_width(table_idx, width, unit))
+
+
+@mcp.tool()
+def set_table_banding(
+    table_idx: int,
+    odd_color: str = "F2F2F2",
+    even_color: str = "FFFFFF",
+    skip_header: bool = True,
+    document_handle: str = "",
+) -> str:
+    """Shade alternating rows of a table.
+
+    skip_header leaves row 0 alone so style_header_row can own it.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_table_banding(
+            table_idx, odd_color=odd_color, even_color=even_color, skip_header=skip_header
+        )
+    )
+
+
+@mcp.tool()
+def style_header_row(
+    table_idx: int,
+    fill_color: str = "4472C4",
+    text_color: str = "FFFFFF",
+    bold: bool = True,
+    document_handle: str = "",
+) -> str:
+    """Shade and format the first row, and make it repeat across page breaks."""
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.style_header_row(table_idx, fill_color=fill_color, text_color=text_color, bold=bold)
+    )
+
+
+# ── Cell decoration ────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def set_cell_borders(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    sides: list[str] | None = None,
+    style: str = "single",
+    color: str = "000000",
+    size: int = 4,
+    document_handle: str = "",
+) -> str:
+    """Set borders on a single cell.
+
+    sides defaults to the four outer edges; also accepts insideH, insideV,
+    tl2br, tr2bl. Successive calls compose, so setting one side leaves the
+    others as they were. size is in eighths of a point.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_borders(
+            table_idx, row_idx, col_idx, sides=sides, style=style, color=color, size=size
+        )
+    )
+
+
+@mcp.tool()
+def set_cell_alignment(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    horizontal: str | None = None,
+    vertical: str | None = None,
+    document_handle: str = "",
+) -> str:
+    """Align cell content. horizontal: left/center/right/both. vertical: top/center/bottom."""
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.set_cell_alignment(
+            table_idx, row_idx, col_idx, horizontal=horizontal, vertical=vertical
+        )
+    )
+
+
+@mcp.tool()
+def format_cell(
+    table_idx: int,
+    row_idx: int,
+    col_idx: int,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    underline: bool | None = None,
+    color: str | None = None,
+    font_size_pt: float | None = None,
+    font_name: str | None = None,
+    document_handle: str = "",
+) -> str:
+    """Format every run of text in a cell.
+
+    Properties left unset are untouched; passing false turns one off
+    explicitly rather than inheriting it from the style.
+    """
+    _, doc = _resolve(document_handle)
+    return _js(
+        doc.format_cell(
+            table_idx,
+            row_idx,
+            col_idx,
+            bold=bold,
+            italic=italic,
+            underline=underline,
+            color=color,
+            font_size_pt=font_size_pt,
+            font_name=font_name,
+        )
+    )
+
+
 # ── Lists ──────────────────────────────────────────────────────────────────
 
 
@@ -1074,11 +1273,25 @@ def add_cross_reference(
 def set_document_protection(
     edit: str,
     password: str = "",
+    algorithm: str = "SHA-512",
+    spin_count: int = 100000,
     document_handle: str = "",
 ) -> str:
-    """Set document protection. edit: trackedChanges/comments/readOnly/forms/none."""
+    """Set document protection. edit: trackedChanges/comments/readOnly/forms/none.
+
+    The password is hashed the way Word verifies it (MS-OE376 §2.15.1.28).
+    Note that algorithm truncates passwords to 15 characters. algorithm is one
+    of MD5/SHA-1/SHA-256/SHA-384/SHA-512.
+    """
     _, doc = _resolve(document_handle)
-    return _js(doc.set_document_protection(edit, password=password or None))
+    return _js(
+        doc.set_document_protection(
+            edit,
+            password=password or None,
+            algorithm=algorithm,
+            spin_count=spin_count,
+        )
+    )
 
 
 # ── Merge ──────────────────────────────────────────────────────────────────

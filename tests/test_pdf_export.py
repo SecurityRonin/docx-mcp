@@ -15,6 +15,15 @@ def _make_doc(tmp_path: Path) -> DocxDocument:
     return DocxDocument.create(out)
 
 
+def _fake_soffice(cmd, **kwargs):
+    """subprocess.run stand-in that writes the PDF LibreOffice would produce."""
+    src = Path(cmd[-1])
+    outdir = Path(cmd[cmd.index("--outdir") + 1])
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / (src.stem + ".pdf")).write_bytes(b"%PDF-1.4\n")
+    return MagicMock(returncode=0, stderr="")
+
+
 class TestConvertToPdf:
     def test_returns_pdf_path_key(self, tmp_path: Path):
         """convert_to_pdf returns dict with 'pdf_path' key."""
@@ -23,11 +32,8 @@ class TestConvertToPdf:
 
         with (
             patch("shutil.which", return_value="/usr/bin/libreoffice"),
-            patch("subprocess.run") as mock_run,
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.rename"),
+            patch("subprocess.run", side_effect=_fake_soffice),
         ):
-            mock_run.return_value = MagicMock(returncode=0)
             result = doc.convert_to_pdf(pdf_out)
 
         assert "pdf_path" in result
@@ -48,11 +54,8 @@ class TestConvertToPdf:
 
         with (
             patch("shutil.which", return_value="/usr/bin/libreoffice"),
-            patch("subprocess.run") as mock_run,
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.rename"),
+            patch("subprocess.run", side_effect=_fake_soffice) as mock_run,
         ):
-            mock_run.return_value = MagicMock(returncode=0)
             doc.convert_to_pdf(pdf_out)
 
         call_args = mock_run.call_args
