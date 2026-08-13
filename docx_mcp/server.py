@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import json
 import sys as _sys
+import threading
 import uuid
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from docx_mcp.document import DocxDocument
 
-mcp = FastMCP(
+mcp = MCPServer(
     "docx-mcp",
     instructions=(
         "This server edits Word (.docx) documents. Open a document first with "
@@ -37,6 +38,7 @@ mcp = FastMCP(
 
 _DEFAULT_HANDLE = "__default__"
 _docs: dict[str, DocxDocument] = {}
+_docs_lock = threading.RLock()
 
 
 def _js(obj: object) -> str:
@@ -51,7 +53,8 @@ def _key(handle: str) -> str:
 def _resolve(handle: str) -> tuple[str, DocxDocument]:
     """Return (key, doc) for a handle, or raise if no document is open there."""
     key = _key(handle)
-    doc = _docs.get(key)
+    with _docs_lock:
+        doc = _docs.get(key)
     if doc is None:
         raise RuntimeError(f"No document is open for handle {key!r}. Call open_document first.")
     return key, doc
@@ -60,10 +63,11 @@ def _resolve(handle: str) -> tuple[str, DocxDocument]:
 def _store(handle: str, doc: DocxDocument) -> str:
     """Place a document under a handle, closing any previous occupant. Returns the key."""
     key = _key(handle) if handle else uuid.uuid4().hex
-    existing = _docs.get(key)
+    with _docs_lock:
+        existing = _docs.get(key)
+        _docs[key] = doc
     if existing is not None:
         existing.close()
-    _docs[key] = doc
     return key
 
 
@@ -108,7 +112,8 @@ def close_document(document_handle: str = "") -> str:
         document_handle: Handle of the document to close. Empty = `__default__` slot.
     """
     key = _key(document_handle)
-    doc = _docs.pop(key, None)
+    with _docs_lock:
+        doc = _docs.pop(key, None)
     if doc is not None:
         doc.close()
         return f"Document {key!r} closed."
@@ -3075,14 +3080,16 @@ def insert_text_box(
 class _Module(_sys.modules[__name__].__class__):
     @property
     def _doc(self) -> DocxDocument | None:
-        return _docs.get(_DEFAULT_HANDLE)
+        with _docs_lock:
+            return _docs.get(_DEFAULT_HANDLE)
 
     @_doc.setter
     def _doc(self, val: DocxDocument | None) -> None:
-        if val is None:
-            _docs.pop(_DEFAULT_HANDLE, None)
-        else:
-            _docs[_DEFAULT_HANDLE] = val
+        with _docs_lock:
+            if val is None:
+                _docs.pop(_DEFAULT_HANDLE, None)
+            else:
+                _docs[_DEFAULT_HANDLE] = val
 
 
 _sys.modules[__name__].__class__ = _Module

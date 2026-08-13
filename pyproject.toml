@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Text Processing :: Markup :: XML",
 ]
 dependencies = [
-    "mcp>=1.28,<2",
+    "mcp>=2,<3",
     "lxml>=4.9.0",
     "mistune>=3.0",
     "presidio-analyzer>=2.2",
