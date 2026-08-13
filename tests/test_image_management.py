@@ -205,3 +205,44 @@ class TestSetImageAltText:
         doc, _ = doc_with_image
         with pytest.raises(ValueError, match="rId99"):
             doc.set_image_alt_text("rId99", "some text")
+
+
+# ── server-level: document_handle support (issue #8) ─────────────────────────
+
+
+def test_update_image_with_explicit_handle(tmp_path, sample_png):
+    """update_image can target a document under a non-default handle."""
+    import json
+
+    from docx_mcp import server
+
+    # Build a DOCX file with one image, saved to disk
+    doc_path = tmp_path / "with_image.docx"
+    doc = DocxDocument.create(str(doc_path))
+    tree = doc._tree("word/document.xml")
+    paras = tree.findall(f".//{W}p")
+    para_id = paras[0].get(f"{W14}paraId")
+    result = doc.insert_image(para_id, str(sample_png))
+    rid = result["rId"]
+    doc.save()
+    doc.close()
+
+    h1 = "image-handle-1"
+    h2 = "image-handle-2"
+    try:
+        server.open_document(str(doc_path), document_handle=h1)
+        server.open_document(str(doc_path), document_handle=h2)
+        new_img = tmp_path / "new.png"
+        new_img.write_bytes(_TINY_PNG + b"\x00")
+
+        out = json.loads(server.update_image(rid, str(new_img), document_handle=h1))
+        assert out["rId"] == rid
+        # Handle h2's doc should NOT have the updated binary
+        key2 = h2
+        doc2 = server._docs[key2]
+        assert not any(v == new_img.read_bytes() for v in doc2._binaries.values()), (
+            "h2 document must not be affected by update on h1"
+        )
+    finally:
+        server.close_document(document_handle=h1)
+        server.close_document(document_handle=h2)

@@ -716,7 +716,7 @@ def delete_image(rId: str) -> str:
 
 
 @mcp.tool()
-def update_image(rId: str, new_image_path: str) -> str:
+def update_image(rId: str, new_image_path: str, document_handle: str = "") -> str:
     """Replace the binary for an existing image in-place.
 
     The image dimensions and position in the document are preserved.
@@ -724,8 +724,11 @@ def update_image(rId: str, new_image_path: str) -> str:
     Args:
         rId: The relationship ID of the image to replace.
         new_image_path: Absolute path to the new image file on disk.
+        document_handle: Optional handle for concurrent session isolation.
+            Empty string uses the shared __default__ slot.
     """
-    return _js(_require_doc().update_image(rId, new_image_path))
+    _, doc = _resolve(document_handle)
+    return _js(doc.update_image(rId, new_image_path))
 
 
 @mcp.tool()
@@ -2940,18 +2943,21 @@ def copy_table(table_idx: int) -> str:
 
 
 @mcp.tool()
-def copy_document(output_path: str) -> str:
+def copy_document(output_path: str, document_handle: str = "") -> str:
     """Save a complete snapshot of the open document to a new path.
 
     The active session and source path are unchanged.
 
     Args:
         output_path: Destination file path (must end in .docx).
+        document_handle: Optional handle for concurrent session isolation.
+            Empty string uses the shared __default__ slot.
 
     Returns:
         {"copied_to": output_path}
     """
-    return _js(_require_doc().copy_document(output_path))
+    _, doc = _resolve(document_handle)
+    return _js(doc.copy_document(output_path))
 
 
 @mcp.tool()
