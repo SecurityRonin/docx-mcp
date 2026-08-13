@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -28,6 +29,25 @@ def test_copy_document_is_valid_docx(test_docx, tmp_path):
     server._doc.copy_document(out)
     with zipfile.ZipFile(out, "r") as zf:
         assert "word/document.xml" in zf.namelist()
+
+
+def test_copy_document_with_explicit_handle(test_docx, tmp_path):
+    """copy_document reads from the document under the given handle."""
+    server._doc = None
+    h1 = "copy-handle-1"
+    h2 = "copy-handle-2"
+    try:
+        server.open_document(str(test_docx), document_handle=h1)
+        server.open_document(str(test_docx), document_handle=h2)
+        out = str(tmp_path / "copy_h1.docx")
+        result = json.loads(server.copy_document(out, document_handle=h1))
+        assert result["copied_to"] == out
+        assert Path(out).exists()
+        with zipfile.ZipFile(out, "r") as zf:
+            assert "word/document.xml" in zf.namelist()
+    finally:
+        server.close_document(document_handle=h1)
+        server.close_document(document_handle=h2)
 
 
 # ── flatten_document ─────────────────────────────────────────────────────────
