@@ -22,7 +22,8 @@ class PdfExportMixin:
 
         Raises:
             RuntimeError: If no document is open, LibreOffice is not found,
-                          or the conversion process exits with a non-zero code.
+                          the conversion process exits with a non-zero code,
+                          or it does not finish within the timeout.
         """
         if self.workdir is None:
             raise RuntimeError("No document is open.")
@@ -40,19 +41,28 @@ class PdfExportMixin:
         outdir = out.parent
         outdir.mkdir(parents=True, exist_ok=True)
 
-        result = subprocess.run(
-            [
-                lo,
-                "--headless",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                str(outdir),
-                str(self.source_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
+        # stdin=DEVNULL: never let LibreOffice inherit the MCP server's stdio pipe;
+        # on Windows soffice blocked on it until the client's request timed out.
+        # timeout stays under the client's 60s tool-call limit so a hang
+        # surfaces as a clear error instead of a dropped request.
+        try:
+            result = subprocess.run(
+                [
+                    lo,
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(outdir),
+                    str(self.source_path),
+                ],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=50,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"LibreOffice conversion timed out after {exc.timeout}s.") from exc
         if result.returncode != 0:
             raise RuntimeError(
                 f"LibreOffice conversion failed (exit {result.returncode}): {result.stderr.strip()}"
