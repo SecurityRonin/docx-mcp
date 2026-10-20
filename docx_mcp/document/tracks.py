@@ -13,6 +13,7 @@ New in this version
 
 from __future__ import annotations
 
+import copy
 import difflib
 import re
 
@@ -433,6 +434,60 @@ def _apply_deletion(
         parent.insert(pos, _build_run(after_text, after_rpr))
 
 
+def _split_run(run_el: etree._Element, run_slots: list[_Slot], k: int) -> etree._Element:
+    """Split *run_el* before absolute slot index *k*; return the new second run.
+
+    Non-text children (tabs, breaks) stay on whichever side of *k* they sit.
+    """
+    after = copy.deepcopy(run_el)
+    pos = run_slots[0].idx
+    for orig, dup in zip(list(run_el), list(after), strict=True):
+        if orig.tag == f"{W}rPr":
+            continue
+        if orig.tag == f"{W}t":
+            text = orig.text or ""
+            cut = min(max(k - pos, 0), len(text))
+            if cut == 0:
+                run_el.remove(orig)
+            elif cut == len(text):
+                after.remove(dup)
+            else:
+                _preserve(orig, text[:cut])
+                _preserve(dup, text[cut:])
+            pos += len(text)
+        elif pos < k:
+            after.remove(dup)
+        else:
+            run_el.remove(orig)
+    run_el.addnext(after)
+    return after
+
+
+def _insert_before_slot(
+    para: etree._Element, slots: list[_Slot], k: int, el: etree._Element
+) -> None:
+    """Place *el* so it precedes accepted-view character *k* of *para*."""
+    if not slots:
+        para.append(el)
+        return
+    if k >= len(slots):
+        last = slots[-1]
+        (last.in_ins if last.in_ins is not None else last.run_el).addnext(el)
+        return
+    s = slots[k]
+    container = s.in_ins if s.in_ins is not None else s.run_el
+    first = next(x for x in slots if (x.in_ins if x.in_ins is not None else x.run_el) is container)
+    if first.idx == s.idx:
+        container.addprevious(el)
+        return
+    if s.in_ins is not None:
+        raise ValueError(
+            "Cannot insert inside an existing w:ins; accept or reject the insertion first"
+        )
+    run_slots = [x for x in slots if x.run_el is s.run_el]
+    _split_run(s.run_el, run_slots, k).addprevious(el)
+
+
 def _ins_element(
     text: str,
     rpr_bytes: bytes | None,
@@ -733,12 +788,15 @@ class TracksMixin:
         ins_cid: int | None = None
 
         if tracked:
+            # Replacement text takes the formatting of the first replaced character;
+            # a pure insertion takes the formatting of the character before it.
+            fmt_slot = real_slot_s if del_text else max(real_slot_s - 1, 0)
+            rpr_bytes = slots[fmt_slot].rpr_bytes if fmt_slot < len(slots) else None
+
+            del_el = None
             if del_text:
                 _apply_deletion(para, real_slot_s, real_slot_e, slots, cid, author, now)
-                # Refresh slots after deletion mutated the tree
-                slots = _flatten_para(para)
-                del_els = list(para.iter(f"{W}del"))
-                last_del = del_els[-1] if del_els else None
+                del_el = next(e for e in para.iter(f"{W}del") if e.get(f"{W}id") == str(cid))
 
             if ins_text:
                 ins_cid = self._next_markup_id(doc)
@@ -746,16 +804,16 @@ class TracksMixin:
                 ins_el.set(f"{W}id", str(ins_cid))
                 ins_el.set(f"{W}author", author)
                 ins_el.set(f"{W}date", now)
-                rpr_bytes = slots[real_slot_s].rpr_bytes if real_slot_s < len(slots) else None
                 r = etree.SubElement(ins_el, f"{W}r")
                 if rpr_bytes:
                     r.append(etree.fromstring(rpr_bytes))
                 t = etree.SubElement(r, f"{W}t")
                 _preserve(t, ins_text)
-                if del_text and last_del is not None:
-                    last_del.addnext(ins_el)
+                if del_el is not None:
+                    # Anchor on this call's own deletion, not the paragraph's last w:del.
+                    del_el.addnext(ins_el)
                 else:
-                    para.append(ins_el)
+                    _insert_before_slot(para, slots, real_slot_s, ins_el)
         else:
             rpr_bytes = slots[real_slot_s].rpr_bytes if real_slot_s < len(slots) else None
             parent = para
