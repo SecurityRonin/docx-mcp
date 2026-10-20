@@ -61,7 +61,8 @@ class MetadataMixin:
             for root_dir, _dirs, files in os.walk(self.workdir):
                 for fname in sorted(files):
                     fpath = Path(root_dir) / fname
-                    arcname = str(fpath.relative_to(self.workdir))
+                    # "/" separators so the part-name checks below match on Windows too.
+                    arcname = fpath.relative_to(self.workdir).as_posix()
 
                     # Use in-memory parsed tree when available (authoritative source)
                     if arcname in self._trees:

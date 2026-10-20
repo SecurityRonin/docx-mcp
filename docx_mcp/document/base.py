@@ -238,7 +238,7 @@ class BaseMixin:
             for root, _dirs, files in os.walk(self.workdir):
                 for fname in files:
                     fpath = Path(root) / fname
-                    arcname = str(fpath.relative_to(self.workdir))
+                    arcname = fpath.relative_to(self.workdir).as_posix()
                     zf.write(fpath, arcname)
 
         modified = sorted(self._modified)

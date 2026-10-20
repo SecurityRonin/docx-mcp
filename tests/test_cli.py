@@ -17,7 +17,7 @@ class TestInstallSkill:
         cli.install_skill(target_dir=target)
         skill_file = target / "SKILL.md"
         assert skill_file.exists()
-        content = skill_file.read_text()
+        content = skill_file.read_text(encoding="utf-8")
         assert "docx-mcp" in content
         assert "open_document" in content
 
@@ -26,7 +26,7 @@ class TestInstallSkill:
         target.mkdir(parents=True)
         (target / "SKILL.md").write_text("old content")
         cli.install_skill(target_dir=target)
-        content = (target / "SKILL.md").read_text()
+        content = (target / "SKILL.md").read_text(encoding="utf-8")
         assert "old content" not in content
         assert "open_document" in content
 
@@ -75,7 +75,7 @@ class TestAutoInstallSkill:
         target.mkdir(parents=True)
         (target / "SKILL.md").write_text("stale")
         cli.auto_install_skill()
-        content = (target / "SKILL.md").read_text()
+        content = (target / "SKILL.md").read_text(encoding="utf-8")
         assert "open_document" in content
 
     def test_skips_when_current(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

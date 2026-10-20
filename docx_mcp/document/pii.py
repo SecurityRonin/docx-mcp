@@ -413,7 +413,8 @@ class PiiMixin:
             for root_dir, _dirs, files in os.walk(self.workdir):
                 for fname in sorted(files):
                     fpath = Path(root_dir) / fname
-                    arcname = str(fpath.relative_to(self.workdir))
+                    # "/" separators so the part-name checks below match on Windows too.
+                    arcname = fpath.relative_to(self.workdir).as_posix()
 
                     if arcname == "word/document.xml":
                         out_zip.writestr(arcname, out_doc_bytes)

@@ -18,7 +18,8 @@ class RawPartsMixin:
         for root, _dirs, files in os.walk(workdir):
             for fname in files:
                 fpath = Path(root) / fname
-                arcname = str(fpath.relative_to(workdir))
+                # OPC part names always use "/", whatever the OS path separator is.
+                arcname = fpath.relative_to(workdir).as_posix()
                 parts.append(arcname)
         return sorted(parts)
 
