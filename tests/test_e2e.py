@@ -593,6 +593,30 @@ class TestCreateFromMarkdownAutoSave:
         assert info["paragraph_count"] >= 2
 
 
+def _add_note(doc: DocxDocument, kind: str, note_id: str, note_type: str | None = None) -> None:
+    """Append a footnote/endnote that no body text references."""
+    tree = doc._tree(f"word/{kind}s.xml")
+    note = etree.SubElement(tree, f"{W}{kind}")
+    note.set(f"{W}id", note_id)
+    if note_type:
+        note.set(f"{W}type", note_type)
+    t = etree.SubElement(etree.SubElement(etree.SubElement(note, f"{W}p"), f"{W}r"), f"{W}t")
+    t.text = "note"
+    doc._mark(f"word/{kind}s.xml")
+
+
+def _pin_in_settings(doc: DocxDocument, kind: str, *note_ids: str) -> None:
+    """List note ids in settings.xml <w:footnotePr>/<w:endnotePr>, as Word does."""
+    pr = etree.SubElement(doc._tree("word/settings.xml"), f"{W}{kind}Pr")
+    for note_id in note_ids:
+        etree.SubElement(pr, f"{W}{kind}").set(f"{W}id", note_id)
+    doc._mark("word/settings.xml")
+
+
+def _note_ids(doc: DocxDocument, kind: str) -> list[str]:
+    return [n.get(f"{W}id") for n in doc._tree(f"word/{kind}s.xml").findall(f"{W}{kind}")]
+
+
 class TestAutoRepairOnSave:
     """save() auto-repairs known corruption patterns before writing."""
 
@@ -642,6 +666,53 @@ class TestAutoRepairOnSave:
         server.open_document(str(out))
         en_result = _j(server.validate_endnotes())
         assert en_result["valid"] is True
+
+    def test_keeps_continuation_notice_named_in_settings(self, test_docx: Path, tmp_path: Path):
+        """The unreferenced continuationNotice endnote Word writes must survive a save.
+
+        Deleting it leaves settings.xml pointing at a missing note and Word calls the file corrupt.
+        """
+        server.open_document(str(test_docx))
+        doc = server._doc
+        _add_note(doc, "endnote", "3", note_type="continuationNotice")
+        _pin_in_settings(doc, "endnote", "-1", "0", "3")
+
+        out = tmp_path / "kept.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"]["orphan_endnotes_removed"] == 0
+
+        server.open_document(str(out))
+        assert "3" in _note_ids(server._doc, "endnote")
+
+    @pytest.mark.parametrize("kind", ["footnote", "endnote"])
+    def test_keeps_structural_note_without_settings_entry(
+        self, test_docx: Path, tmp_path: Path, kind: str
+    ):
+        """A typed separator/notice note is never an orphan, even beyond the reserved ids."""
+        server.open_document(str(test_docx))
+        _add_note(server._doc, kind, "5", note_type="continuationNotice")
+
+        out = tmp_path / "kept.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"][f"orphan_{kind}s_removed"] == 0
+
+        server.open_document(str(out))
+        assert "5" in _note_ids(server._doc, kind)
+
+    @pytest.mark.parametrize("kind", ["footnote", "endnote"])
+    def test_keeps_plain_note_named_in_settings(self, test_docx: Path, tmp_path: Path, kind: str):
+        """A plain note is not an orphan while settings.xml lists its id."""
+        server.open_document(str(test_docx))
+        doc = server._doc
+        _add_note(doc, kind, "7")
+        _pin_in_settings(doc, kind, "7")
+
+        out = tmp_path / "kept.docx"
+        result = _j(server.save_document(str(out)))
+        assert result["repairs"][f"orphan_{kind}s_removed"] == 0
+
+        server.open_document(str(out))
+        assert "7" in _note_ids(server._doc, kind)
 
     def test_deduplicates_paraids(self, test_docx: Path, tmp_path: Path):
         """Duplicate paraIds are fixed by regenerating one copy."""

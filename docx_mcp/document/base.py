@@ -278,6 +278,22 @@ class BaseMixin:
 
     # ── Pre-save auto-repair ─────────────────────────────────────────────────
 
+    @staticmethod
+    def _is_structural_note(note: etree._Element) -> bool:
+        """Separator and continuation notes are structural: no body text references them."""
+        return note.get(f"{W}type") not in (None, "normal")
+
+    def _settings_note_ids(self, kind: str) -> set[str]:
+        """Note ids named in settings.xml <w:footnotePr>/<w:endnotePr>; Word needs them to exist."""
+        settings = self._tree("word/settings.xml")
+        if settings is None:
+            return set()
+        return {
+            n.get(f"{W}id")
+            for pr in settings.iter(f"{W}{kind}Pr")
+            for n in pr.findall(f"{W}{kind}")
+        }
+
     def _pre_save_repair(self) -> dict:
         """Auto-repair known corruption patterns before writing.
 
@@ -300,8 +316,11 @@ class BaseMixin:
         fn_tree = self._tree("word/footnotes.xml")
         if fn_tree is not None and body is not None:
             ref_ids = {int(ref.get(f"{W}id", "0")) for ref in body.iter(f"{W}footnoteReference")}
+            pinned = self._settings_note_ids("footnote")
             for fn in list(fn_tree.findall(f"{W}footnote")):
                 fn_id = int(fn.get(f"{W}id", "0"))
+                if self._is_structural_note(fn) or str(fn_id) in pinned:
+                    continue
                 if fn_id >= 2 and fn_id not in ref_ids:
                     fn_tree.remove(fn)
                     repairs["orphan_footnotes_removed"] += 1
@@ -312,9 +331,10 @@ class BaseMixin:
         en_tree = self._tree("word/endnotes.xml")
         if en_tree is not None and body is not None:
             ref_ids = {int(ref.get(f"{W}id", "0")) for ref in body.iter(f"{W}endnoteReference")}
+            pinned = self._settings_note_ids("endnote")
             for en in list(en_tree.findall(f"{W}endnote")):
                 en_id_str = en.get(f"{W}id", "0")
-                if en_id_str in ("0", "-1"):
+                if en_id_str in ("0", "-1") or self._is_structural_note(en) or en_id_str in pinned:
                     continue
                 en_id = int(en_id_str)
                 if en_id not in ref_ids:
